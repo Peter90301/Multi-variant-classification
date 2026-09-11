@@ -1,0 +1,18 @@
+name: multi-variant-hdc
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - cuda-version=12.9
+  - numpy=2.2.6
+  - scipy=1.15.2
+  - pandas=2.3.3
+  - scikit-learn=1.7.2
+  - joblib=1.5.3
+  - pip:
+      - --extra-index-url https://pypi.nvidia.com
+      - matplotlib==3.4.0
+      - biom-format==2.1.17
+      - cupy-cuda12x==14.0.1
+      - cuml-cu12==26.2.0
