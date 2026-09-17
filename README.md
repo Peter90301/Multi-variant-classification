@@ -1,12 +1,46 @@
 # Multi-variant Classification with HDC
 
-This repository contains the main scripts used to predict sample labels from
-taxonomic and amplicon sequence variant (ASV) features with hyperdimensional
-computing (HDC).
+This repository contains experimental fixed-dimensional classification
+pipelines for taxonomic and amplicon sequence variant (ASV) features. The Geo
+and EMP experiments use different encodings and should not be treated as one
+identical HDC algorithm.
 
-The HDC method used here is **TF-IDF-weighted sparse bipolar random indexing
-with a LinearSVC readout**, referred to as **HDC-Hash**. GPU experiments use
-CuPy CUDA kernels and, where indicated, cuML.
+## Method Definitions
+
+### Geo default: nonnegative feature hashing
+
+The default Geo classifier is:
+
+```text
+sample-level taxonomy and sequence tokens
+-> FeatureHasher(alternate_sign=False)
+-> sublinear TF-IDF
+-> LinearSVC
+```
+
+This is a fixed-dimensional **nonnegative feature-hashing** pipeline. It is not
+the sparse bipolar random-indexing representation used by the EMP experiments.
+
+### EMP tuned: sparse bipolar random indexing
+
+The tuned EMP classifier is:
+
+```text
+sample x ASV abundance
+-> training-fitted abundance weighting
+-> sparse bipolar whole-ASV or k-mer projection
+-> sample-wise L2 normalization
+-> LinearSVC
+```
+
+The selected EMP configurations use sublinear TF-IDF weighting and sparse
+bipolar whole-ASV projections. This representation is referred to as
+**HDC-Hash** in the EMP results. GPU experiments use CuPy CUDA kernels and,
+where indicated, cuML.
+
+Neither primary pipeline implements random Fourier features, an RBF feature
+map, or a kernel bandwidth parameter. Separate nonlinear experiments, when
+reported, use an exact RBF-SVM readout and are not random Fourier features.
 
 ## Scripts
 
@@ -17,8 +51,9 @@ Groups observations by sample and trains a `geo_loc_name` classifier from:
 - taxonomic hierarchy: domain, phylum, class, order, family, genus, species
 - `ASV_sequence`
 
-The high-accuracy mode uses feature hashing, TF-IDF weighting, and LinearSVC.
-The script also includes a prototype-based HDC readout.
+The default high-accuracy mode uses nonnegative feature hashing, TF-IDF
+weighting, and LinearSVC. The script also includes a separate prototype-based
+HDC readout.
 
 ### `predict_hdc_geo_name.py`
 
@@ -36,9 +71,10 @@ evaluation.
 
 ### `benchmark_emp_tuned_hdc_gpu.py`
 
-Benchmarks the validation-selected EMP HDC representations with a GPU-resident
-readout. It compares the tuned GPU HDC pipeline with Random Forest while
-recording accuracy, stage-level runtime, and prediction speedup.
+Benchmarks the currently selected whole-ASV, TF-IDF-weighted EMP HDC
+representations with a GPU-resident readout. It compares the tuned GPU HDC
+pipeline with Random Forest while recording accuracy, stage-level runtime, and
+prediction speedup. See the compatibility and timing limitations below.
 
 ### `benchmark_emp_16s_optimized_precache.py`
 
@@ -120,7 +156,7 @@ python benchmark_emp_16s_full_gpu_cuml.py \
 ```
 
 Convert that cache to the compact prediction-only memory-mapped layout and run
-one warm-up plus 20 timed full prediction-pipeline repetitions:
+one warm-up plus 20 timed cached-input prediction-pipeline repetitions:
 
 ```bash
 python benchmark_emp_16s_optimized_precache.py \
@@ -134,11 +170,14 @@ python benchmark_emp_16s_optimized_precache.py \
 ```
 
 The second command trains deployment models once before timing. Its measured
-prediction pipeline includes memory-map opening, host-to-device transfer, HDC
-accumulation, L2 normalization, GPU prediction, and returning labels to CPU.
-Raw BIOM parsing and model training are intentionally excluded from deployment
-prediction timing because they were completed in the one-time preparation
-stage.
+**cached-input prediction pipeline** includes memory-map opening,
+host-to-device transfer, HDC accumulation, L2 normalization, GPU prediction,
+and returning labels to CPU. Raw BIOM parsing, metadata alignment, filtering,
+splitting, and model training are excluded because they were completed in the
+one-time preparation stage. The standard 4,096-dimensional cache contains raw
+counts; the separate tuned GPU benchmark caches the already TF-IDF-weighted
+test input, so its TF-IDF transformation is also outside the timed region. This
+timing must not be reported as raw-BIOM end-to-end runtime.
 
 ## Tune And Benchmark EMP HDC
 
@@ -157,8 +196,8 @@ python tune_emp_16s_hdc_encodings.py \
   --repeats 20
 ```
 
-Benchmark the validation-selected encodings with the GPU-resident linear
-readout:
+Benchmark the validation-selected whole-ASV TF-IDF encodings with the
+GPU-resident linear readout:
 
 ```bash
 python benchmark_emp_tuned_hdc_gpu.py \
@@ -173,11 +212,26 @@ python benchmark_emp_tuned_hdc_gpu.py \
   --device 0
 ```
 
+The current GPU benchmark reconstructs a `whole_sequence_...npz` projection and
+always applies sublinear TF-IDF. It therefore supports the configurations that
+won the reported EMP tuning runs:
+
+| Target | Encoding | Weighting |
+|---|---|---|
+| EMPO1 | whole ASV sequence | sublinear TF-IDF |
+| EMPO2 | whole ASV sequence | sublinear TF-IDF |
+| EMPO3 | whole ASV sequence | sublinear TF-IDF |
+
+It does not yet dispatch generically on every candidate emitted by the tuning
+script. If a future run selects raw counts, log1p weighting, or a k-mer
+projection, `benchmark_emp_tuned_hdc_gpu.py` must be extended before that
+selection can be benchmarked faithfully.
+
 ## Geo-location Training And Prediction
 
 The input CSV must include a sample identifier, `geo_loc_name`, taxonomy
-columns, and `ASV_sequence`. Train the default TF-IDF HDC-Hash plus LinearSVC
-model:
+columns, and `ASV_sequence`. Train the default nonnegative feature-hashing,
+TF-IDF, and LinearSVC model:
 
 ```bash
 python train_hdc_geo_classifier.py \
@@ -199,6 +253,38 @@ python predict_hdc_geo_name.py \
   --output results/geo_hdc/new_sample_predictions.csv \
   --top-k 3
 ```
+
+## Evaluation Scope
+
+The Geo and EMP scripts in this repository use sample-level random or
+stratified random splits. Rows are aggregated by sample before Geo splitting,
+but samples are not grouped by Voyage. EMP samples are not grouped by Study.
+Consequently, their reported test accuracies estimate performance on held-out
+samples drawn from the same collection of voyages or studies; they do not
+establish generalization to unseen voyages or studies.
+
+Cross-voyage or cross-study claims require group-aware outer splits such as
+`GroupKFold` or `StratifiedGroupKFold`, with all preprocessing and
+hyperparameter selection repeated inside each outer training partition. The
+EMP tuning script does use an inner validation split and fits TF-IDF only on
+the applicable training subset, but its outer split is still sample-level.
+
+## Benchmark Scope And Known Limitations
+
+- The tuned GPU HDC timing begins from an already transformed cache. It covers
+  cache opening, transfer, HDC construction, normalization, and prediction,
+  not preprocessing from raw BIOM and metadata.
+- The Random Forest cached-input path reads a compressed SciPy `.npz`, whereas
+  the optimized GPU path reads uncompressed memory-mapped `.npy` arrays. The
+  reported total therefore includes both compute and different cache-format
+  I/O costs. Classification-only timing and per-stage timing should be reported
+  separately from this cached-input total.
+- `gpu_linear_predict()` currently assumes a multiclass LinearSVC readout and
+  applies `argmax` across class-score columns. A binary LinearSVC has only one
+  score column, so the current helper would always return class index 0 for a
+  binary task. Binary support must threshold the single score at zero before
+  this helper is used for two-class experiments. The reported EMP tasks have
+  3, 6, and 19 classes, so this limitation does not affect those results.
 
 ## Supporting Modules
 
