@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import math
 import os
 import re
 import sys
@@ -69,6 +70,25 @@ def validate_labels(labels: np.ndarray, description: str) -> None:
         raise ValueError(
             f"{description} needs at least 2 samples per class for the default "
             f"stratified split; too-small class(es): {', '.join(small[:5])}."
+        )
+
+
+def validate_split_size(
+    labels: np.ndarray, test_size: float, description: str
+) -> None:
+    """Check that both split partitions can contain every class."""
+    if not 0.0 < test_size < 1.0:
+        raise ValueError("--test-size must be greater than 0 and less than 1.")
+    class_count = len(set(np.asarray(labels, dtype=str).tolist()))
+    test_samples = math.ceil(len(labels) * test_size)
+    train_samples = len(labels) - test_samples
+    if test_samples < class_count or train_samples < class_count:
+        raise ValueError(
+            f"{description} has {len(labels)} samples across {class_count} classes, "
+            f"but --test-size {test_size} gives {train_samples} train and "
+            f"{test_samples} test samples. Both partitions need at least "
+            f"{class_count} samples to contain every class. Add samples or "
+            f"increase --test-size (for example, try 0.5 for a tiny demo)."
         )
 
 
@@ -360,6 +380,8 @@ def evaluate_three_methods(
             "timed_runs": repeats,
             "prediction_pipeline_mean_sec": float(times.mean()),
             "prediction_pipeline_std_sec": float(times.std()),
+            "execution": "CPU in-memory prediction",
+            "timing_scope": "in-memory feature transform + CPU prediction",
         })
 
     rf_time = rows[0]["prediction_pipeline_mean_sec"]

@@ -8,6 +8,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import numpy as np
+
+from scripts.three_method_common import validate_labels, validate_split_size
+
 
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = ROOT / "examples" / "generate_synthetic_data.py"
@@ -120,6 +124,12 @@ class PublicSmokeTests(unittest.TestCase):
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("not found", result.stderr.lower())
+
+    def test_tiny_stratified_split_reports_partition_problem(self):
+        labels = np.asarray(["A", "A", "B", "B", "C", "C"])
+        validate_labels(labels, "tiny example")
+        with self.assertRaisesRegex(ValueError, "Both partitions"):
+            validate_split_size(labels, 0.2, "tiny example")
 
 
 if __name__ == "__main__":

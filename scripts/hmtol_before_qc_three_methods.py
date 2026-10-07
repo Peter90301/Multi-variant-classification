@@ -21,6 +21,7 @@ from three_method_common import (
     sequence_projection,
     validate_labels,
     validate_positive_options,
+    validate_split_size,
     write_rows,
 )
 
@@ -86,6 +87,7 @@ def main() -> None:
         args.data_dir, args.min_sample_sum
     )
     validate_labels(labels, "HMTOL Country")
+    validate_split_size(labels, args.test_size, "HMTOL Country")
     indices = np.arange(len(labels), dtype=np.int32)
     train_idx, test_idx = train_test_split(
         indices, test_size=args.test_size, random_state=args.random_state,

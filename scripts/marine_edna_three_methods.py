@@ -28,6 +28,7 @@ from three_method_common import (
     timed_runs,
     validate_labels,
     validate_positive_options,
+    validate_split_size,
     write_rows,
 )
 
@@ -128,6 +129,7 @@ def main() -> None:
         args.csv, args.kmer_size, args.max_count_weight
     )
     validate_labels(labels, "Marine geo_loc_name")
+    validate_split_size(labels, args.test_size, "Marine geo_loc_name")
     indices = np.arange(len(labels))
     train_idx, test_idx = train_test_split(
         indices, test_size=args.test_size, random_state=args.random_state,

@@ -14,6 +14,10 @@ pretrained model or classify unlabelled samples.
 Run every command from the repository root after installing
 `scripts/requirements.txt`.
 
+The commands below use Bash syntax for Linux/macOS/WSL. In Windows
+PowerShell, use `py` instead of `python` and paste each command on one line;
+PowerShell does not use Bash's trailing `\` continuation.
+
 ## Marine eDNA
 
 ```bash
@@ -23,6 +27,12 @@ python scripts/marine_edna_three_methods.py \
   --backend cpu
 ```
 
+PowerShell:
+
+```powershell
+py scripts/marine_edna_three_methods.py --csv C:\path\to\marine_table.csv --outdir output\marine --backend cpu
+```
+
 Required, case-sensitive CSV columns:
 
 ```text
@@ -30,9 +40,12 @@ sample,geo_loc_name,ASV_sequence,domain,phylum,class,order,family,genus,species
 ```
 
 `count` is optional. If it is absent or invalid, the script uses count `1` for
-that row. Repeated rows for one sample are expected and their feature counts
-are aggregated. The script extracts 6-mers from `ASV_sequence`, normalizes
-taxonomy tokens to lowercase, and removes non-`ACGTN` sequence characters.
+that row. Repeated rows for one sample are expected and their taxonomy and
+sequence-token features are aggregated into one explicit sample feature
+matrix. The script extracts 6-mers from `ASV_sequence`, normalizes taxonomy
+tokens to lowercase, and removes non-`ACGTN` sequence characters. Random
+Forest and Explicit-Vocab use this Marine feature matrix; HDC hashes the same
+feature dictionaries before TF-IDF.
 Empty values in taxonomy or sequence cells are ignored, but the column itself
 must exist. A sample with multiple `geo_loc_name` values is rejected because a
 sample needs one target label. IDs and column names are case-sensitive.
@@ -65,6 +78,9 @@ rejected. The output has three rows for each EMPO target, plus `settings.json`.
 
 The final HDC settings in this script are EMPO1 `32768/32/C=2`, EMPO2
 `16384/32/C=1`, and EMPO3 `32768/16/C=20` (dimension/active dimensions/SVM C).
+Random Forest and Explicit-Vocab use the explicit BIOM sample-by-feature
+abundance matrix. HDC applies sublinear TF-IDF to that matrix before its
+deterministic sparse bipolar projection.
 This entrypoint's prediction timing is CPU in-memory timing; it is not the
 separately recorded GPU cached-input result in the canonical table.
 
@@ -130,8 +146,11 @@ All scripts use one unrecorded warm-up and then `--repeats` timed prediction
 runs (default 20). `train_sec` is measured separately. Marine GPU timing
 includes cache load, host-to-device transfer, GPU sparse LinearSVC readout,
 and device-to-host copy. EMP and HMTOL scripts currently time their in-memory
-CPU prediction path. Always read `execution` and `timing_scope` before comparing
-speedup values.
+CPU prediction path. Marine, EMP, and HMTOL before-QC `results.csv` rows
+contain `prediction_pipeline_mean_sec`, `execution`, and `timing_scope`. HMTOL
+QC summary rows use `prediction_pipeline_mean_total_sec`; its fold rows use
+`prediction_pipeline_mean_sec`. Always read the timing field together with
+`execution` and `timing_scope` before comparing speedup values.
 
 ## Common options
 
@@ -140,5 +159,8 @@ python scripts/<entrypoint>.py --help
 ```
 
 Useful options include `--random-state 42`, `--repeats 1` for a quick run,
-`--n-estimators 20` for a smaller RF demonstration, `--min-sample-sum 1000`,
-and the HDC dimension/active-dimension options exposed by the selected script.
+`--n-estimators 20` for a smaller RF demonstration, `--test-size 0.2`,
+`--min-sample-sum 1000`, and the HDC dimension/active-dimension options exposed
+by the selected script. Sample-level splits require both train and test to have
+at least one sample for every class, so very small examples may need a larger
+`--test-size` or more samples.

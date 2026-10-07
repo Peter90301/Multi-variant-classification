@@ -219,6 +219,11 @@ def run_target(args, target, sample_ids, counts, metadata, projection):
             "cv_folds": args.folds,
             "prediction_pipeline_mean_total_sec": total_time,
             "speedup_vs_random_forest": 0.0,
+            "execution": "CPU in-memory prediction",
+            "timing_scope": (
+                "sum of per-fold in-memory feature transform + CPU prediction "
+                "means; training excluded"
+            ),
         })
     rf_time = summary[0]["prediction_pipeline_mean_total_sec"]
     for row in summary:

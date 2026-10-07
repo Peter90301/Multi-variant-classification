@@ -6,10 +6,11 @@ Each labelled dataset is split or grouped before fitting. The three reported
 methods are:
 
 1. **Random Forest**: a 300-tree `RandomForestClassifier` with square-root
-   feature selection and balanced subsampling, fitted to the explicit sparse
-   sample-by-feature abundance representation.
-2. **Explicit-Vocab (SVM)**: an explicit sparse feature vocabulary, TF-IDF,
-   and `LinearSVC`.
+   feature selection and balanced subsampling. Marine eDNA supplies the
+   aggregated taxonomy-token and sequence 6-mer feature matrix; EMP and HMTOL
+   supply the explicit BIOM sample-by-feature abundance matrix.
+2. **Explicit-Vocab (SVM)**: an explicit sparse vocabulary built from the
+   dataset-specific input matrix, TF-IDF, and `LinearSVC`.
 3. **HDC-Linear_opt**: a fixed-dimensional sparse HDC representation,
    L2-normalized before a tuned `LinearSVC` readout.
 

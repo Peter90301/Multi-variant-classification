@@ -33,6 +33,8 @@ Terminal, PowerShell, or WSL shell, depending on your operating system.
 
 ### CPU installation
 
+Linux/macOS/WSL:
+
 ```bash
 git clone https://github.com/Peter90301/Multi-variant-classification.git
 cd Multi-variant-classification
@@ -45,17 +47,30 @@ On Linux, macOS, or WSL:
 source .venv/bin/activate
 ```
 
-On Windows PowerShell:
+Windows PowerShell:
 
 ```powershell
+git clone https://github.com/Peter90301/Multi-variant-classification.git
+cd Multi-variant-classification
+py -3 -m venv .venv
 .venv\Scripts\Activate.ps1
 ```
 
-Then install the CPU dependencies:
+If `py` is not installed, replace every `py` or `py -3` command below with
+`python`.
+
+Linux/macOS/WSL install command:
 
 ```bash
 python -m pip install --upgrade pip
 python -m pip install -r scripts/requirements.txt
+```
+
+Windows PowerShell install command:
+
+```powershell
+py -m pip install --upgrade pip
+py -m pip install -r scripts/requirements.txt
 ```
 
 ### Optional GPU installation
@@ -77,6 +92,8 @@ benchmarks and are documented in [docs/RESULTS.md](docs/RESULTS.md).
 The following creates a small, fictional, release-safe dataset. It does not
 download research data and does not require a GPU.
 
+Linux/macOS/WSL (Bash):
+
 ```bash
 python examples/generate_synthetic_data.py --outdir examples/data
 python scripts/marine_edna_three_methods.py \
@@ -86,6 +103,14 @@ python scripts/marine_edna_three_methods.py \
   --hdc-dim 256 \
   --n-estimators 20 \
   --repeats 1
+```
+
+Windows PowerShell (paste each command as one line; PowerShell does not use
+Bash's trailing `\` continuation):
+
+```powershell
+py examples/generate_synthetic_data.py --outdir examples/data
+py scripts/marine_edna_three_methods.py --csv examples/data/marine_edna.csv --outdir output/quickstart --backend cpu --hdc-dim 256 --n-estimators 20 --repeats 1
 ```
 
 Successful output includes:
@@ -105,6 +130,12 @@ Run all release-safe end-to-end checks with:
 
 ```bash
 python -m unittest discover -s tests -v
+```
+
+PowerShell version:
+
+```powershell
+py -m unittest discover -s tests -v
 ```
 
 ## Using Your Own Data
@@ -216,6 +247,7 @@ All scripts support `--help`. Common options are:
 | `--random-state` | `42` where available | Reproducible split and projection seed. |
 | `--repeats` | `20` | Timed prediction repetitions after one warm-up. Use `1` for a quick smoke test. |
 | `--n-estimators` | `300` | Random Forest trees. Lower it for a quick demonstration. |
+| `--test-size` | `0.2` | Fraction held out for sample-level tests. Both partitions must be large enough to contain every class. |
 | `--hdc-dim` | `32768` where exposed | HDC hypervector dimension. Lower dimensions are useful for a smoke test, not for canonical results. |
 | `--active-dims` | `32` where exposed | Active dimensions per sparse sequence projection. |
 | `--hdc-c` | dataset default | LinearSVC regularization for HDC. |
@@ -230,14 +262,18 @@ Marine additionally supports `--backend gpu|cpu` and `--device` (default
 - `results.csv`: method-level metrics. `accuracy` is ordinary held-out
   accuracy; `balanced_accuracy` weights classes equally; `train_sec` excludes
   prediction timing; `prediction_pipeline_mean_sec` is the mean of the timed
-  runs; `speedup_vs_random_forest` is RF time divided by that method's time.
+  runs for Marine, EMP, and HMTOL before QC; `speedup_vs_random_forest` is RF
+  time divided by that method's time. These rows also include `execution` and
+  `timing_scope`.
 - `predictions.csv`: sample-level truth and predictions for Marine and HMTOL
   before QC. The HMTOL QC entrypoint does not write a sample-level prediction
   file; it writes fold-level metrics and study-fold assignments instead.
 - `settings.json`: input paths, thresholds, split design, model settings, and
   timing scope.
-- HMTOL QC `*/fold_results.csv`: one row per target, fold, and method;
-  `*/summary.csv`: pooled target-level accuracy and timing;
+- HMTOL QC `*/fold_results.csv`: one row per target, fold, and method, including
+  per-fold `prediction_pipeline_mean_sec`, `execution`, and `timing_scope`;
+  `*/summary.csv`: pooled target-level accuracy and timing in
+  `prediction_pipeline_mean_total_sec`, with the same execution/scope labels;
   `*/study_fold_assignments.csv`: the study grouping used for the blind test.
 
 GPU timing includes the scope stated in the row, such as cache load, host to
@@ -246,9 +282,12 @@ automatically raw-BIOM-to-prediction timing.
 
 ## Methods and Results
 
-- **Random Forest** uses the explicit sample-by-feature abundance matrix.
-- **Explicit-Vocab (SVM)** uses an explicit sparse vocabulary, TF-IDF, and
-  `LinearSVC`.
+- **Random Forest** uses the explicit feature matrix produced by each input
+  loader. For Marine eDNA this is the aggregated taxonomy-token and sequence
+  6-mer feature matrix; for EMP and HMTOL it is the BIOM ASV/feature abundance
+  matrix.
+- **Explicit-Vocab (SVM)** uses an explicit sparse vocabulary built from the
+  same dataset-specific input representation, TF-IDF, and `LinearSVC`.
 - **HDC-Linear_opt** uses the dataset-specific tuned HDC encoding and a
   normalized linear HDC representation with `LinearSVC`.
 
@@ -291,7 +330,10 @@ details.
 - **BIOM/metadata IDs do not match:** inspect IDs for whitespace, prefixes, and
   case differences. HMTOL QC also requires the same sample order.
 - **Too few samples or classes:** the default stratified split needs at least
-  two samples in each class. Add labelled samples or change the task design.
+  two samples in each class, and both train and test partitions must be large
+  enough to contain every class. For a tiny three-class demo with six total
+  samples, the default `--test-size 0.2` cannot work; add samples or try
+  `--test-size 0.5`.
 - **Too few studies for QC:** with `--folds 3`, every class must occur in at
   least three studies. Reduce folds only when that is scientifically justified.
 - **GPU unavailable:** install `scripts/requirements-gpu.txt` and verify an

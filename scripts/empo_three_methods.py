@@ -21,6 +21,7 @@ from three_method_common import (
     sequence_projection,
     validate_labels,
     validate_positive_options,
+    validate_split_size,
     write_rows,
 )
 
@@ -94,6 +95,7 @@ def main() -> None:
             clean_label(metadata[level].iloc[index]) for index in valid
         ])
         validate_labels(labels, f"EMP {level}")
+        validate_split_size(labels, args.test_size, f"EMP {level}")
         relative = np.arange(len(valid), dtype=np.int32)
         stratify = labels if min(Counter(labels).values()) >= 2 else None
         train_idx, test_idx = train_test_split(
