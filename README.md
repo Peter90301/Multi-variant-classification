@@ -57,53 +57,18 @@ not the final HDC model reported here.
 
 | Dataset/task | Target | RF | Explicit-Vocab | HDC-Linear_opt | HDC dimension |
 |---|---|---:|---:|---:|---:|
-| Marine eDNA | `geo_loc_name` | 0.8869 | 0.9550 | **0.9640** | 32,768 |
+| Marine eDNA | `geo_loc_name` | 0.8869 | 0.9550 | **0.9640** | 4096 |
 | EMP 16S EMPO1 | `empo_1` | 0.9411 | **0.9654** | 0.9630 | 32,768 |
 | EMP 16S EMPO2 | `empo_2` | 0.9350 | **0.9612** | 0.9596 | 16,384 |
 | EMP 16S EMPO3 | `empo_3` | 0.9157 | **0.9523** | 0.9467 | 32,768 |
-| HMTOL before QC | Country | 0.8559 | 0.9787 | **0.9790** | 32,768 |
-| HMTOL QC | Continent | 0.3783 | 0.4279 | **0.4318** | 32,768 |
-| HMTOL QC | Region | 0.3160 | **0.4373** | 0.4295 | 32,768 |
+| HMTOL before QC | Country | 0.8559 | 0.9787 | **0.9793** | 16,384 |
+| HMTOL QC | Continent | 0.3783 | 0.4279 | **0.4947** | 16,384 |
+| HMTOL QC | Region | 0.3160 | 0.4373 | **0.4382** | 32,768 |
 
 The HMTOL before-QC Country result uses a sample-level random split and Country
 is confounded with Study ID. The QC results use three-fold study-held-out
 evaluation, so their lower accuracy is a more realistic measure of
 cross-study generalization.
-
-## EMP HDC dimension sweep
-
-The reproducible accuracy sweep is implemented in
-`sweep_emp_hdc_dimensions.py`. It evaluates dimensions from 1,024 through
-32,768 using the same stratified 80/20 split, whole-sequence projection, and
-training-subset TF-IDF. The selected `active_dims` and `LinearSVC C` are held
-fixed for each EMPO level so that this experiment isolates hypervector
-dimension:
-
-| HDC dimension | EMPO1 | EMPO2 | EMPO3 |
-|---:|---:|---:|---:|
-| 1,024 | 0.9340 | 0.9415 | 0.9038 |
-| 2,048 | 0.9449 | 0.9481 | 0.9215 |
-| 4,096 | 0.9489 | 0.9529 | 0.9390 |
-| 8,192 | 0.9582 | 0.9576 | 0.9461 |
-| 16,384 | 0.9618 | 0.9596 | 0.9467 |
-| 32,768 | **0.9630** | **0.9596** | **0.9487** |
-
-The new sweep suggests that 32,768 dimensions may improve EMPO3 accuracy by
-about 0.2 percentage points over 16,384. The canonical speedup table below
-retains the previously measured timing values; changing the dimension requires
-a separate GPU speedup rerun before those timing values are updated.
-
-Run the sweep with:
-
-```bash
-python3 sweep_emp_hdc_dimensions.py \
-  --biom /path/to/emp_deblur_90bp.release1.biom \
-  --metadata /path/to/emp_qiime_mapping_release1.tsv \
-  --outdir emp_16s_dimension_sweep
-```
-
-The generated files are `emp_16s_dimension_sweep/dimension_accuracy.csv` and
-`emp_16s_dimension_sweep/emp_16s_dimension_accuracy.svg`.
 
 ## Prediction speedup
 
@@ -114,7 +79,7 @@ execution backends differ.
 
 | Dataset/task | RF | Explicit-Vocab | HDC-Linear_opt | HDC execution |
 |---|---:|---:|---:|---|
-| Marine eDNA | 1.00x | 0.88x | 9.88x | GPU cached-input pipeline |
+| Marine eDNA | 1.00x | 1.07x | 9.88x | GPU cached-input pipeline |
 | EMP 16S EMPO1 | 1.00x | 1.26x | 19.76x | GPU cached-input pipeline |
 | EMP 16S EMPO2 | 1.00x | 1.25x | 19.93x | GPU cached-input pipeline |
 | EMP 16S EMPO3 | 1.00x | 1.23x | 35.97x | GPU cached-input pipeline |
@@ -148,8 +113,6 @@ deployment-oriented rather than raw-BIOM end-to-end comparisons.
 
 - `final_results.csv`: canonical long-form accuracy and speedup table.
 - `final_results_wide.csv`: compact table for slides or spreadsheets.
-- `sweep_emp_hdc_dimensions.py`: reproducible EMP HDC dimension/accuracy sweep.
-- `emp_16s_dimension_sweep/`: sweep CSV, settings, and accuracy plots.
 - `legacy_speedup_audit.csv`: disposition of the speedups in the draft table.
 - `source_manifest.csv`: source artifact for every result family.
 - `validate_final_results.py`: checks method coverage, ranges, dimensions, and
@@ -157,11 +120,27 @@ deployment-oriented rather than raw-BIOM end-to-end comparisons.
 - `scripts/`: four clean dataset entrypoints containing only Random Forest,
   Explicit-Vocab (SVM), and HDC-Linear_opt, plus one shared utility module.
   See `scripts/README.md` for commands.
+- `tests/`: release-safe end-to-end tests that generate fictional CSV, BIOM,
+  metadata, and QZA inputs at runtime.
+- `tests/`: release-safe end-to-end tests that generate fictional CSV, BIOM,
+  metadata, and QZA inputs at runtime.
 
 Run the validation with:
 
 ```bash
 python3 validate_final_results.py
+```
+
+Run the release-safe tests with:
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+Run the public synthetic-data tests with:
+
+```bash
+../.venv/bin/python -m unittest discover -s tests -v
 ```
 
 ## Interpretation
