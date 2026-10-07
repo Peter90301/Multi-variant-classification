@@ -59,8 +59,8 @@ not the final HDC model reported here.
 |---|---|---:|---:|---:|---:|
 | Marine eDNA | `geo_loc_name` | 0.8869 | 0.9550 | **0.9640** | 32,768 |
 | EMP 16S EMPO1 | `empo_1` | 0.9411 | **0.9654** | 0.9630 | 32,768 |
-| EMP 16S EMPO2 | `empo_2` | 0.9350 | **0.9612** | 0.9596 | 32,768 |
-| EMP 16S EMPO3 | `empo_3` | 0.9157 | **0.9523** | 0.9467 | 16,384 |
+| EMP 16S EMPO2 | `empo_2` | 0.9350 | **0.9612** | 0.9596 | 16,384 |
+| EMP 16S EMPO3 | `empo_3` | 0.9157 | **0.9523** | 0.9467 | 32,768 |
 | HMTOL before QC | Country | 0.8559 | 0.9787 | **0.9790** | 32,768 |
 | HMTOL QC | Continent | 0.3783 | 0.4279 | **0.4318** | 32,768 |
 | HMTOL QC | Region | 0.3160 | **0.4373** | 0.4295 | 32,768 |
@@ -90,8 +90,8 @@ dimension:
 
 The new sweep suggests that 32,768 dimensions may improve EMPO3 accuracy by
 about 0.2 percentage points over 16,384. The canonical speedup table below
-still reports the previously benchmarked EMPO3 configuration; a new GPU
-speedup benchmark is required before replacing that timing result.
+retains the previously measured timing values; changing the dimension requires
+a separate GPU speedup rerun before those timing values are updated.
 
 Run the sweep with:
 

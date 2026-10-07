@@ -22,8 +22,8 @@ from three_method_common import (
 
 CONFIGS = {
     "empo_1": {"dimension": 32768, "active_dims": 32, "hdc_c": 2.0},
-    "empo_2": {"dimension": 32768, "active_dims": 32, "hdc_c": 1.0},
-    "empo_3": {"dimension": 16384, "active_dims": 16, "hdc_c": 20.0},
+    "empo_2": {"dimension": 16384, "active_dims": 32, "hdc_c": 1.0},
+    "empo_3": {"dimension": 32768, "active_dims": 16, "hdc_c": 20.0},
 }
 MISSING = {"", "NA", "N/A", "nan", "None", "null", "Unknown", "unknown"}
 

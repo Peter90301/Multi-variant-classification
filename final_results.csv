@@ -7,10 +7,10 @@ EMP 16S,EMPO1,empo_1,25145,stratified random 80/20,Explicit-Vocab (SVM),0.965400
 EMP 16S,EMPO1,empo_1,25145,stratified random 80/20,HDC-Linear_opt,0.9630145158,19.7574,32768,32,2,sublinear TF-IDF + sparse bipolar projection,GPU,cached-input prediction pipeline,cache-format confounded
 EMP 16S,EMPO2,empo_2,25145,stratified random 80/20,Random Forest,0.9349771326,1.0000,,,,explicit ASV abundance,CPU,cached-input prediction pipeline,cache-format confounded
 EMP 16S,EMPO2,empo_2,25145,stratified random 80/20,Explicit-Vocab (SVM),0.9612248956,1.2541,,,,explicit ASV vocabulary + TF-IDF,CPU,BIOM load + filtering + prediction,legacy mixed-scope
-EMP 16S,EMPO2,empo_2,25145,stratified random 80/20,HDC-Linear_opt,0.9596341221,19.9267,32768,32,1,sublinear TF-IDF + sparse bipolar projection,GPU,cached-input prediction pipeline,cache-format confounded
+EMP 16S,EMPO2,empo_2,25145,stratified random 80/20,HDC-Linear_opt,0.9596341221,19.9267,16384,32,1,sublinear TF-IDF + sparse bipolar projection,GPU,cached-input prediction pipeline,cache-format confounded
 EMP 16S,EMPO3,empo_3,25145,stratified random 80/20,Random Forest,0.9156890038,1.0000,,,,explicit ASV abundance,CPU,cached-input prediction pipeline,cache-format confounded
 EMP 16S,EMPO3,empo_3,25145,stratified random 80/20,Explicit-Vocab (SVM),0.9522767946,1.2337,,,,explicit ASV vocabulary + TF-IDF,CPU,BIOM load + filtering + prediction,legacy mixed-scope
-EMP 16S,EMPO3,empo_3,25145,stratified random 80/20,HDC-Linear_opt,0.9467090873,35.9722,16384,16,20,sublinear TF-IDF + sparse bipolar projection,GPU,cached-input prediction pipeline,cache-format confounded
+EMP 16S,EMPO3,empo_3,25145,stratified random 80/20,HDC-Linear_opt,0.9467090873,35.9722,32768,16,20,sublinear TF-IDF + sparse bipolar projection,GPU,cached-input prediction pipeline,cache-format confounded
 HMTOL,HMTOL before QC,Country,15479,stratified random 80/20,Random Forest,0.8559431525,1.0000,,,,explicit ASV abundance,CPU,cached-input prediction pipeline,within-task cache benchmark
 HMTOL,HMTOL before QC,Country,15479,stratified random 80/20,Explicit-Vocab (SVM),0.9786821705,5.3258,,,,explicit ASV vocabulary + TF-IDF,CPU,cached-input prediction pipeline,within-task cache benchmark
 HMTOL,HMTOL before QC,Country,15479,stratified random 80/20,HDC-Linear_opt,0.9790051680,15.9610,32768,32,10,sublinear TF-IDF + sparse bipolar projection,GPU,cached-input prediction pipeline,cache-format confounded

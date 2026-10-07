@@ -27,8 +27,8 @@ EXPECTED_TASKS = {
 EXPECTED_HDC_DIMENSIONS = {
     "Marine location": 32768,
     "EMPO1": 32768,
-    "EMPO2": 32768,
-    "EMPO3": 16384,
+    "EMPO2": 16384,
+    "EMPO3": 32768,
     "HMTOL before QC": 32768,
     "HMTOL QC Continent": 32768,
     "HMTOL QC Region": 32768,

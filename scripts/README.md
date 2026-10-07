@@ -149,8 +149,8 @@ The script applies the final per-level HDC settings:
 | Level | Dimension | Active dimensions | LinearSVC C |
 |---|---:|---:|---:|
 | EMPO1 | 32,768 | 32 | 2 |
-| EMPO2 | 32,768 | 32 | 1 |
-| EMPO3 | 16,384 | 16 | 20 |
+| EMPO2 | 16,384 | 32 | 1 |
+| EMPO3 | 32,768 | 16 | 20 |
 
 ## HMTOL before QC
 
@@ -176,4 +176,3 @@ with Study ID, so this result is not a cross-study generalization estimate.
 
 This uses balanced study-held-out folds. Study ID controls the split and is
 not included as an input feature.
-
