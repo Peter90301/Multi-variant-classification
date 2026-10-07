@@ -20,8 +20,9 @@ from sklearn.metrics import accuracy_score, balanced_accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
+from scipy import sparse
 
-from three_method_common import timed_runs, write_rows
+from three_method_common import gpu_cached_sparse_prediction, timed_runs, write_rows
 
 
 TAXONOMY_FIELDS = [
@@ -92,6 +93,7 @@ def main() -> None:
     parser.add_argument("--hdc-c", type=float, default=16.0)
     parser.add_argument("--n-estimators", type=int, default=300)
     parser.add_argument("--repeats", type=int, default=20)
+    parser.add_argument("--device", type=int, default=0)
     args = parser.parse_args()
     args.outdir.mkdir(parents=True, exist_ok=True)
 
@@ -141,7 +143,30 @@ def main() -> None:
         started = time.perf_counter()
         model.fit(x_train, y_train)
         train_sec = time.perf_counter() - started
-        prediction, times = timed_runs(lambda: model.predict(x_test), args.repeats)
+        cache_path = ""
+        execution = "CPU in-memory prediction"
+        cache_bytes = 0
+        cache_nnz = 0
+        if method == "HDC-Linear_opt":
+            # Build the exact CPU-trained HDC representation once, then use it
+            # as the cached input for the GPU prediction benchmark.
+            hashed_test = model.named_steps["hasher"].transform(x_test)
+            hdc_test = model.named_steps["tfidf"].transform(hashed_test).tocsr()
+            cache_file = args.outdir / "hdc_gpu_cached_input.npz"
+            sparse.save_npz(cache_file, hdc_test, compressed=True)
+            prediction, times, gpu_metadata = gpu_cached_sparse_prediction(
+                cache_file,
+                model.named_steps["classifier"],
+                model.classes_,
+                args.repeats,
+                args.device,
+            )
+            cache_path = str(cache_file)
+            cache_bytes = gpu_metadata["cache_bytes"]
+            cache_nnz = gpu_metadata["nnz"]
+            execution = "GPU cached-input pipeline"
+        else:
+            prediction, times = timed_runs(lambda: model.predict(x_test), args.repeats)
         predictions[method] = prediction
         rows.append({
             "method": method,
@@ -154,6 +179,18 @@ def main() -> None:
             "prediction_pipeline_mean_sec": float(times.mean()),
             "prediction_pipeline_std_sec": float(times.std()),
             "speedup_vs_random_forest": 0.0,
+            "execution": execution,
+            "timing_scope": (
+                "cache load + H2D + GPU sparse LinearSVC readout"
+                if method == "HDC-Linear_opt"
+                else "in-memory feature transform + CPU prediction"
+            ),
+            "cache_path": cache_path,
+            "cache_bytes": cache_bytes,
+            "cache_nnz": cache_nnz,
+            "warmup_runs": 1,
+            "timed_runs": args.repeats,
+            "gpu_device": args.device if method == "HDC-Linear_opt" else "",
         })
     rf_time = rows[0]["prediction_pipeline_mean_sec"]
     for row in rows:

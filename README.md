@@ -79,7 +79,7 @@ execution backends differ.
 
 | Dataset/task | RF | Explicit-Vocab | HDC-Linear_opt | HDC execution |
 |---|---:|---:|---:|---|
-| Marine eDNA | 1.00x | 0.88x | 0.98x | CPU hashed pipeline |
+| Marine eDNA | 1.00x | 0.88x | 9.88x | GPU cached-input pipeline |
 | EMP 16S EMPO1 | 1.00x | 1.26x | 19.76x | GPU cached-input pipeline |
 | EMP 16S EMPO2 | 1.00x | 1.25x | 19.93x | GPU cached-input pipeline |
 | EMP 16S EMPO3 | 1.00x | 1.23x | 35.97x | GPU cached-input pipeline |
@@ -87,10 +87,12 @@ execution backends differ.
 | HMTOL QC Continent | 1.00x | 4.04x | 7.45x | GPU optimized precache pipeline |
 | HMTOL QC Region | 1.00x | 4.08x | 7.78x | GPU optimized precache pipeline |
 
-The EMP/HMTOL HDC timing includes cache opening, host-to-device transfer, HDC
-accumulation, normalization, and linear readout. The RF and HDC caches are not
-stored in identical formats, so these values are deployment-oriented rather
-than a raw-BIOM end-to-end comparison.
+The Marine HDC timing includes sparse cache opening, host-to-device transfer,
+GPU sparse linear readout, and the prediction copy back to the host. The EMP
+and HMTOL HDC timings include their respective cache opening, host-to-device
+transfer, HDC accumulation, normalization, and linear readout. The RF and HDC
+caches are not stored in identical formats, so these values are
+deployment-oriented rather than raw-BIOM end-to-end comparisons.
 
 ## Corrections to the draft table
 
@@ -102,10 +104,10 @@ than a raw-BIOM end-to-end comparison.
   memory-mapped CSR cache while the RF baseline included previously measured
   raw BIOM parsing. They are retained in `legacy_speedup_audit.csv` but are not
   used in the canonical table.
-- The Marine `4.44x` HDC speedup could not be tied to a matching prediction
-  benchmark. The verified CPU prediction result is `0.9781x`; a separate GPU
-  precache implementation reached `35.64x`, but that is an implementation
-  result rather than the CPU HDC model timing.
+- The Marine GPU cached-input rerun preserves HDC accuracy (`0.9640`) and
+  measures `9.88x` speedup versus the RF prediction baseline. The older `0.98x`
+  value was from the CPU hashed pipeline and is no longer the canonical Marine
+  HDC execution result.
 
 ## Files
 

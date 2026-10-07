@@ -1,7 +1,7 @@
 dataset,task,target,samples,evaluation,method,accuracy,speedup_vs_rf,hdc_dimension,hdc_active_dims,linear_svc_c,encoding_variant,execution,timing_scope,speedup_comparability
 Marine eDNA,Marine location,geo_loc_name,3887,stratified random 80/20,Random Forest,0.8868894602,1.0000,,,,explicit abundance,CPU,prediction wall time,within-task only
 Marine eDNA,Marine location,geo_loc_name,3887,stratified random 80/20,Explicit-Vocab (SVM),0.9550128535,0.8825,,,,explicit vocabulary + TF-IDF,CPU,prediction wall time,within-task only
-Marine eDNA,Marine location,geo_loc_name,3887,stratified random 80/20,HDC-Linear_opt,0.9640102828,0.9781,32768,,16,non-negative FeatureHasher + TF-IDF,CPU,prediction wall time,within-task only
+Marine eDNA,Marine location,geo_loc_name,3887,stratified random 80/20,HDC-Linear_opt,0.9640102828,9.8804,32768,,16,non-negative FeatureHasher + TF-IDF,GPU,cached-input prediction pipeline,within-task mixed CPU/GPU benchmark
 EMP 16S,EMPO1,empo_1,25145,stratified random 80/20,Random Forest,0.9411413800,1.0000,,,,explicit ASV abundance,CPU,cached-input prediction pipeline,cache-format confounded
 EMP 16S,EMPO1,empo_1,25145,stratified random 80/20,Explicit-Vocab (SVM),0.9654006761,1.2631,,,,explicit ASV vocabulary + TF-IDF,CPU,BIOM load + filtering + prediction,legacy mixed-scope
 EMP 16S,EMPO1,empo_1,25145,stratified random 80/20,HDC-Linear_opt,0.9630145158,19.7574,32768,32,2,sublinear TF-IDF + sparse bipolar projection,GPU,cached-input prediction pipeline,cache-format confounded

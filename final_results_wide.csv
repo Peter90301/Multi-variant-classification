@@ -1,4 +1,4 @@
 method,Marine_eDNA_accuracy,Marine_eDNA_speedup,EMPO1_accuracy,EMPO1_speedup,EMPO2_accuracy,EMPO2_speedup,EMPO3_accuracy,EMPO3_speedup,HMTOL_Country_accuracy,HMTOL_Country_speedup,HMTOL_QC_Continent_accuracy,HMTOL_QC_Continent_speedup,HMTOL_QC_Region_accuracy,HMTOL_QC_Region_speedup
 Random Forest,0.8869,1.00,0.9411,1.00,0.9350,1.00,0.9157,1.00,0.8559,1.00,0.3783,1.00,0.3160,1.00
 Explicit-Vocab (SVM),0.9550,0.88,0.9654,1.26,0.9612,1.25,0.9523,1.23,0.9787,5.33,0.4279,4.04,0.4373,4.08
-HDC-Linear_opt,0.9640,0.98,0.9630,19.76,0.9596,19.93,0.9467,35.97,0.9790,15.96,0.4318,7.45,0.4295,7.78
+HDC-Linear_opt,0.9640,9.88,0.9630,19.76,0.9596,19.93,0.9467,35.97,0.9790,15.96,0.4318,7.45,0.4295,7.78

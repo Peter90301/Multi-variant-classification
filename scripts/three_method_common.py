@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import os
 import re
+import sys
 import time
 import zipfile
 from pathlib import Path
@@ -28,6 +30,85 @@ def write_rows(path: Path, rows: list[dict]) -> None:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)
+
+
+def _import_cupy():
+    """Import CuPy with the CUDA runtime visible to the active environment."""
+    cuda_root = Path(sys.executable).parent.parent
+    os.environ.setdefault("CUDA_PATH", str(cuda_root))
+    nvrtc_library = cuda_root / "lib" / "libnvrtc.so.12"
+    if nvrtc_library.exists():
+        import ctypes
+
+        ctypes.CDLL(str(nvrtc_library), mode=ctypes.RTLD_GLOBAL)
+    try:
+        import cupy as cp
+        from cupyx.scipy.sparse import csr_matrix as gpu_csr_matrix
+    except ImportError as error:
+        raise RuntimeError(
+            "The GPU cached-input path requires CuPy. Install the optional "
+            "GPU dependencies from scripts/requirements-gpu.txt."
+        ) from error
+    return cp, gpu_csr_matrix
+
+
+def gpu_cached_sparse_prediction(
+    cache_path: Path,
+    classifier,
+    classes: np.ndarray,
+    repeats: int,
+    device: int,
+) -> tuple[np.ndarray, np.ndarray, dict[str, object]]:
+    """Predict from a cached sparse matrix using a GPU-resident linear readout.
+
+    The cache open, host-to-device transfer, sparse matrix construction, GPU
+    matrix-vector multiply, and device-to-host prediction copy are timed. The
+    fitted LinearSVC coefficients are uploaded once before the timed runs,
+    matching the EMP cached-input benchmark convention.
+    """
+    cp, gpu_csr_matrix = _import_cupy()
+    cp.cuda.Device(device).use()
+    coefficients = cp.asarray(
+        classifier.coef_.astype(np.float32, copy=False).T, dtype=cp.float32
+    )
+    intercept = cp.asarray(
+        classifier.intercept_.astype(np.float32, copy=False), dtype=cp.float32
+    )
+    classes = np.asarray(classes)
+
+    def run_once() -> tuple[np.ndarray, dict[str, float]]:
+        started = time.perf_counter()
+        host_matrix = sparse.load_npz(cache_path).tocsr()
+        data = cp.asarray(host_matrix.data, dtype=cp.float32)
+        indices = cp.asarray(host_matrix.indices, dtype=cp.int32)
+        indptr = cp.asarray(host_matrix.indptr, dtype=cp.int32)
+        matrix = gpu_csr_matrix(
+            (data, indices, indptr), shape=host_matrix.shape, dtype=cp.float32
+        )
+        scores = matrix @ coefficients
+        scores += intercept
+        if classifier.coef_.shape[0] == 1:
+            prediction_indices = (scores[:, 0] > 0).astype(cp.int32)
+        else:
+            prediction_indices = cp.argmax(scores, axis=1).astype(cp.int32)
+        cp.cuda.Stream.null.synchronize()
+        prediction = classes[cp.asnumpy(prediction_indices)]
+        return prediction, {
+            "total_sec": time.perf_counter() - started,
+            "cache_bytes": int(cache_path.stat().st_size),
+            "nnz": int(host_matrix.nnz),
+        }
+
+    run_once()
+    times = []
+    prediction = None
+    metadata = {}
+    for _ in range(repeats):
+        prediction, run_metadata = run_once()
+        times.append(run_metadata["total_sec"])
+        metadata = run_metadata
+    cp.get_default_memory_pool().free_all_blocks()
+    return np.asarray(prediction), np.asarray(times, dtype=np.float64), metadata
 
 
 def timed_runs(runner, repeats: int):

@@ -22,18 +22,18 @@ All scripts output exactly three method rows to `results.csv`.
 ## Timing definition
 
 The clean scripts train each model once and then perform one warm-up plus 20
-timed prediction runs by default. Prediction timing starts from the same
-in-memory test representation:
+timed prediction runs by default. EMP and HMTOL use the cached-input GPU
+benchmark convention for their GPU HDC paths. Marine HDC-Linear_opt now uses
+the same convention:
 
 - Random Forest: test abundance matrix to prediction.
 - Explicit-Vocab: TF-IDF transform plus LinearSVC prediction.
-- HDC-Linear_opt: TF-IDF transform, HDC projection, L2 normalization, and
-  LinearSVC prediction.
+- HDC-Linear_opt on Marine: cached sparse HDC input, host-to-device transfer,
+  GPU sparse linear readout, and device-to-host prediction copy.
 
-This gives a fair, reproducible CPU prediction-pipeline comparison. It is not
-the historical optimized GPU-precache timing reported in the presentation.
-Accuracy and model hyperparameters are unchanged, but speedup values should be
-reported with their timing scope.
+Random Forest and Explicit-Vocab remain CPU in-memory prediction baselines in
+the Marine script. Accuracy and model hyperparameters are unchanged, but
+speedup values should always be reported with their timing scope.
 
 ## Environment
 
@@ -119,12 +119,21 @@ Study IDs are used only to create held-out folds and are not model features.
 ```bash
 ../.venv/bin/python scripts/marine_edna_three_methods.py \
   --csv /path/to/all_voyages_NEW.csv \
-  --outdir output/marine_edna
+  --outdir output/marine_edna \
+  --device 0
 ```
 
 The input features are taxonomy ranks plus 6-mer sequence tokens grouped by
 sample. HDC uses a 32,768-dimensional non-negative FeatureHasher and
-`LinearSVC(C=16)`.
+`LinearSVC(C=16)`. Its test representation is saved as
+`hdc_gpu_cached_input.npz`; the timed GPU path loads this cache, transfers it
+to the selected CUDA device, and performs the sparse linear readout there.
+
+Install the optional CUDA dependency for the Marine GPU path with:
+
+```bash
+python -m pip install -r scripts/requirements-gpu.txt
+```
 
 ## EMP EMPO1-3
 
@@ -167,5 +176,4 @@ with Study ID, so this result is not a cross-study generalization estimate.
 
 This uses balanced study-held-out folds. Study ID controls the split and is
 not included as an input feature.
-
 

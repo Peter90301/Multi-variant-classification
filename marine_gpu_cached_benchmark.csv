@@ -1,0 +1,4 @@
+method,accuracy,balanced_accuracy,samples,train_samples,test_samples,train_sec,prediction_pipeline_mean_sec,prediction_pipeline_std_sec,speedup_vs_random_forest,execution,timing_scope,cache_bytes,cache_nnz,warmup_runs,timed_runs,gpu_device
+Random Forest,0.8868894602,0.6639808942,3887,3109,778,4.6024361812,0.8856574378,0.0873455964,1.0000,CPU in-memory prediction,in-memory feature transform + CPU prediction,0,0,1,20,
+Explicit-Vocab (SVM),0.9550128535,0.8077767043,3887,3109,778,9.0140808900,0.8282552408,0.0556536391,1.0693,CPU in-memory prediction,in-memory feature transform + CPU prediction,0,0,1,20,
+HDC-Linear_opt,0.9640102828,0.8137742302,3887,3109,778,12.1384949181,0.0896378720,0.0012954419,9.8804,GPU cached-input pipeline,cache load + H2D + GPU sparse LinearSVC readout,21385913,2806408,1,20,0

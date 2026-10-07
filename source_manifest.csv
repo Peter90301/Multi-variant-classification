@@ -2,7 +2,7 @@ result_family,source_artifact,used_for
 Marine eDNA RF,../random_forest_output/random_forest_metrics.json,accuracy
 Marine eDNA Explicit-Vocab,../timing_dict_output/metrics.json,accuracy
 Marine eDNA HDC,../timing_hdc_output/hdc_metrics.json,accuracy and HDC settings
-Marine eDNA timing,../current_speedup_summary.csv,RF-relative prediction wall-time speedups
+Marine eDNA timing,marine_gpu_cached_benchmark.csv,RF-relative prediction speedup from the GPU cached-input rerun
 EMP RF and Explicit-Vocab,../previous_method/emp_16s_tree_baselines_confusion/empo_tree_baseline_summary.csv,explicit accuracy
 EMP RF exact run,../previous_method/emp_16s_random_forest_300/random_forest_empo_summary.csv,RF accuracy
 EMP tuned HDC,../previous_method/emp_16s_hdc_encoding_tuning/untouched_test_results.csv,HDC accuracy and hyperparameters
