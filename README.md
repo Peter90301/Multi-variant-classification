@@ -70,6 +70,41 @@ is confounded with Study ID. The QC results use three-fold study-held-out
 evaluation, so their lower accuracy is a more realistic measure of
 cross-study generalization.
 
+## EMP HDC dimension sweep
+
+The reproducible accuracy sweep is implemented in
+`sweep_emp_hdc_dimensions.py`. It evaluates dimensions from 1,024 through
+32,768 using the same stratified 80/20 split, whole-sequence projection, and
+training-subset TF-IDF. The selected `active_dims` and `LinearSVC C` are held
+fixed for each EMPO level so that this experiment isolates hypervector
+dimension:
+
+| HDC dimension | EMPO1 | EMPO2 | EMPO3 |
+|---:|---:|---:|---:|
+| 1,024 | 0.9340 | 0.9415 | 0.9038 |
+| 2,048 | 0.9449 | 0.9481 | 0.9215 |
+| 4,096 | 0.9489 | 0.9529 | 0.9390 |
+| 8,192 | 0.9582 | 0.9576 | 0.9461 |
+| 16,384 | 0.9618 | 0.9596 | 0.9467 |
+| 32,768 | **0.9630** | **0.9596** | **0.9487** |
+
+The new sweep suggests that 32,768 dimensions may improve EMPO3 accuracy by
+about 0.2 percentage points over 16,384. The canonical speedup table below
+still reports the previously benchmarked EMPO3 configuration; a new GPU
+speedup benchmark is required before replacing that timing result.
+
+Run the sweep with:
+
+```bash
+python3 sweep_emp_hdc_dimensions.py \
+  --biom /path/to/emp_deblur_90bp.release1.biom \
+  --metadata /path/to/emp_qiime_mapping_release1.tsv \
+  --outdir emp_16s_dimension_sweep
+```
+
+The generated files are `emp_16s_dimension_sweep/dimension_accuracy.csv` and
+`emp_16s_dimension_sweep/emp_16s_dimension_accuracy.svg`.
+
 ## Prediction speedup
 
 The canonical speedup values below are RF-relative prediction-pipeline results.
@@ -113,6 +148,8 @@ deployment-oriented rather than raw-BIOM end-to-end comparisons.
 
 - `final_results.csv`: canonical long-form accuracy and speedup table.
 - `final_results_wide.csv`: compact table for slides or spreadsheets.
+- `sweep_emp_hdc_dimensions.py`: reproducible EMP HDC dimension/accuracy sweep.
+- `emp_16s_dimension_sweep/`: sweep CSV, settings, and accuracy plots.
 - `legacy_speedup_audit.csv`: disposition of the speedups in the draft table.
 - `source_manifest.csv`: source artifact for every result family.
 - `validate_final_results.py`: checks method coverage, ranges, dimensions, and

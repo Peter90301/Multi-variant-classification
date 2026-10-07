@@ -1,0 +1,51 @@
+{
+  "biom": "/mnt/hdd/tsunghan/raw-ms-dataset/EMP_16S/emp_deblur_90bp.release1.biom",
+  "biom_nnz": 23585148,
+  "biom_path": "/mnt/hdd/tsunghan/raw-ms-dataset/EMP_16S/emp_deblur_90bp.release1.biom",
+  "biom_shape_observations_samples": [
+    317314,
+    26181
+  ],
+  "dimensions": [
+    1024,
+    2048,
+    4096,
+    8192,
+    16384,
+    32768
+  ],
+  "evaluation": "stratified random 80/20 split, random_state=42",
+  "level_settings": {
+    "empo_1": {
+      "active_dims": 32,
+      "c_value": 2.0
+    },
+    "empo_2": {
+      "active_dims": 32,
+      "c_value": 1.0
+    },
+    "empo_3": {
+      "active_dims": 16,
+      "c_value": 20.0
+    }
+  },
+  "levels": [
+    "empo_1",
+    "empo_2",
+    "empo_3"
+  ],
+  "load_biom_sec": 3.9580341880209744,
+  "metadata": "/mnt/hdd/tsunghan/raw-ms-dataset/EMP_16S/emp_qiime_mapping_release1.tsv",
+  "metadata_path": "/mnt/hdd/tsunghan/raw-ms-dataset/EMP_16S/emp_qiime_mapping_release1.tsv",
+  "min_sample_sum": 1000.0,
+  "observations": 317314,
+  "outdir": "/home/tsl012/Multi_variant classification/emp_16s_dimension_sweep",
+  "prepare_filtered_matrix_sec": 0.6014075400307775,
+  "random_state": 42,
+  "samples_after_metadata_intersection": 25145,
+  "samples_total_in_biom": 26181,
+  "samples_with_sum_ge_min": 25145,
+  "sequence_encoding": "whole-sequence",
+  "test_size": 0.2,
+  "weighting": "sublinear TF-IDF fit on each level's training subset"
+}
