@@ -87,6 +87,39 @@ repository currently use the shared CPU in-memory prediction implementation;
 their research speedup tables refer to separately recorded cached GPU
 benchmarks and are documented in [docs/RESULTS.md](docs/RESULTS.md).
 
+### Docker (CPU)
+
+The repository includes a CPU-only Docker image. From the repository root:
+
+```bash
+docker build -t multi-variant-classification .
+docker run --rm multi-variant-classification
+```
+
+The default command prints the Marine entrypoint help. To run the release-safe
+synthetic example, create the fictional data on the host and mount the
+repository into the container:
+
+```bash
+python3 examples/generate_synthetic_data.py --outdir examples/data
+docker run --rm -v "$PWD:/app" multi-variant-classification \
+  python scripts/marine_edna_three_methods.py \
+  --csv examples/data/marine_edna.csv \
+  --outdir output/docker_quickstart \
+  --backend cpu --hdc-dim 256 --n-estimators 20 --repeats 1
+```
+
+PowerShell:
+
+```powershell
+py examples/generate_synthetic_data.py --outdir examples/data
+docker run --rm -v "${PWD}:/app" multi-variant-classification python scripts/marine_edna_three_methods.py --csv examples/data/marine_edna.csv --outdir output/docker_quickstart --backend cpu --hdc-dim 256 --n-estimators 20 --repeats 1
+```
+
+The Dockerfile does not install CuPy or provide GPU access. GPU execution
+requires a compatible NVIDIA host, NVIDIA Container Toolkit, and a separate
+CUDA-compatible image/dependency setup.
+
 ## Quick Start
 
 The following creates a small, fictional, release-safe dataset. It does not
