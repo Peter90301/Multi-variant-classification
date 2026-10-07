@@ -1,0 +1,15 @@
+result_family,source_artifact,used_for
+Marine eDNA RF,../random_forest_output/random_forest_metrics.json,accuracy
+Marine eDNA Explicit-Vocab,../timing_dict_output/metrics.json,accuracy
+Marine eDNA HDC,../timing_hdc_output/hdc_metrics.json,accuracy and HDC settings
+Marine eDNA timing,../current_speedup_summary.csv,RF-relative prediction wall-time speedups
+EMP RF and Explicit-Vocab,../previous_method/emp_16s_tree_baselines_confusion/empo_tree_baseline_summary.csv,explicit accuracy
+EMP RF exact run,../previous_method/emp_16s_random_forest_300/random_forest_empo_summary.csv,RF accuracy
+EMP tuned HDC,../previous_method/emp_16s_hdc_encoding_tuning/untouched_test_results.csv,HDC accuracy and hyperparameters
+EMP tuned HDC timing,../previous_method/emp_16s_hdc_linear_nonlinear_speed/summary.csv,HDC cached prediction-pipeline speedup
+EMP Explicit-Vocab timing,../emp_16s_five_method_comparison_opt.csv,Explicit-Vocab legacy pipeline speedup
+EMP rejected mixed timing,../previous_method/emp_raw_gpu_hdc_linear_opt/raw_gpu_hdc_linear_opt_summary.csv,legacy speedup audit only
+HMTOL before-QC accuracy,../previous_method/hmtol_country_hdc_accuracy_improved/hmtol_country_five_methods_improved.csv,three-method accuracy
+HMTOL before-QC Explicit timing,../previous_method/hmtol_country_improved_speed_benchmark_v2/full_prediction_pipeline_speedup.csv,Explicit-Vocab cached pipeline speedup
+HMTOL before-QC HDC timing,../previous_method/hmtol_country_hdc_variant_benchmark/summary.csv,HDC cached pipeline speedup
+HMTOL QC,../previous_method/hmtol_qc_study_heldout_benchmark/all_targets_full_pipeline_summary.csv,accuracy and cached pipeline speedup

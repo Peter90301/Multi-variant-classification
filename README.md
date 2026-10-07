@@ -1,306 +1,150 @@
-# Multi-variant Classification with HDC
+# Multi-Variant Classification: Final Three-Method Summary
 
-This repository contains experimental fixed-dimensional classification
-pipelines for taxonomic and amplicon sequence variant (ASV) features. The Geo
-and EMP experiments use different encodings and should not be treated as one
-identical HDC algorithm.
+This directory consolidates the final results for three classifier families:
 
-## Method Definitions
+1. **Random Forest (RF)**
+2. **Explicit-Vocab (SVM)**
+3. **HDC-Linear_opt**
 
-### Geo default: nonnegative feature hashing
+The evaluated tasks are Marine eDNA location prediction, EMP 16S EMPO1-3
+classification, HMTOL Country prediction before QC, and HMTOL Continent/Region
+prediction after study-level QC.
 
-The default Geo classifier is:
+## Classification pipeline
 
-```text
-sample-level taxonomy and sequence tokens
--> FeatureHasher(alternate_sign=False)
--> sublinear TF-IDF
--> LinearSVC
+```mermaid
+flowchart TD
+    A[Processed ASV or feature table] --> B[Sample grouping and abundance aggregation]
+    B --> C1[Explicit abundance matrix]
+    B --> C2[Sequence or hashed HDC encoding]
+    C1 --> RF[Random Forest]
+    C1 --> TFIDF[TF-IDF]
+    TFIDF --> SVM[Explicit-Vocab LinearSVC]
+    C2 --> HDCW[Abundance weighting and vector bundling]
+    HDCW --> NORM[L2 normalization]
+    NORM --> HDC[HDC-Linear_opt LinearSVC]
+    RF --> P[Predicted class]
+    SVM --> P
+    HDC --> P
+    Y[Ground-truth label] --> E[Evaluation]
+    P --> E
+    E --> M[Accuracy and RF-relative prediction speedup]
 ```
 
-This is a fixed-dimensional **nonnegative feature-hashing** pipeline. It is not
-the sparse bipolar random-indexing representation used by the EMP experiments.
+This is the correct high-level pipeline, with two important qualifications:
 
-### EMP tuned: sparse bipolar random indexing
+- Random Forest does not use the sequence/HDC encoding. It receives the
+  explicit sample-by-feature abundance matrix.
+- The final HDC encoder is not identical for every dataset. Marine eDNA uses
+  non-negative feature hashing over taxonomy and sequence tokens. EMP and
+  HMTOL use sequence-derived sparse bipolar random indexing.
 
-The tuned EMP classifier is:
+## Method definitions
 
-```text
-sample x ASV abundance
--> training-fitted abundance weighting
--> sparse bipolar whole-ASV or k-mer projection
--> sample-wise L2 normalization
--> LinearSVC
-```
+| Method | Model input and classifier |
+|---|---|
+| Random Forest | Explicit ASV/feature abundance matrix; 300-tree RandomForestClassifier. |
+| Explicit-Vocab (SVM) | Explicit feature vocabulary, TF-IDF, and LinearSVC. |
+| HDC-Linear_opt | Tuned fixed-dimensional HDC representation, normalization, and a linear SVM readout. |
 
-The selected EMP configurations use sublinear TF-IDF weighting and sparse
-bipolar whole-ASV projections. This representation is referred to as
-**HDC-Hash** in the EMP results. GPU experiments use CuPy CUDA kernels and,
-where indicated, cuML.
+For Marine eDNA, the input tokens include `domain`, `phylum`, `class`,
+`order`, `family`, `genus`, `species`, and ASV sequence k-mers. EMP and HMTOL
+start from 16S ASV abundance tables and use ASV sequences to construct the HDC
+projection. Taxonomy plus sequence HDC was tested separately for HMTOL but is
+not the final HDC model reported here.
 
-Neither primary pipeline implements random Fourier features, an RBF feature
-map, or a kernel bandwidth parameter. Separate nonlinear experiments, when
-reported, use an exact RBF-SVM readout and are not random Fourier features.
+## Verified accuracy
 
-## Scripts
+| Dataset/task | Target | RF | Explicit-Vocab | HDC-Linear_opt | HDC dimension |
+|---|---|---:|---:|---:|---:|
+| Marine eDNA | `geo_loc_name` | 0.8869 | 0.9550 | **0.9640** | 32,768 |
+| EMP 16S EMPO1 | `empo_1` | 0.9411 | **0.9654** | 0.9630 | 32,768 |
+| EMP 16S EMPO2 | `empo_2` | 0.9350 | **0.9612** | 0.9596 | 32,768 |
+| EMP 16S EMPO3 | `empo_3` | 0.9157 | **0.9523** | 0.9467 | 16,384 |
+| HMTOL before QC | Country | 0.8559 | 0.9787 | **0.9790** | 32,768 |
+| HMTOL QC | Continent | 0.3783 | 0.4279 | **0.4318** | 32,768 |
+| HMTOL QC | Region | 0.3160 | **0.4373** | 0.4295 | 32,768 |
 
-### `train_hdc_geo_classifier.py`
+The HMTOL before-QC Country result uses a sample-level random split and Country
+is confounded with Study ID. The QC results use three-fold study-held-out
+evaluation, so their lower accuracy is a more realistic measure of
+cross-study generalization.
 
-Groups observations by sample and trains a `geo_loc_name` classifier from:
+## Prediction speedup
 
-- taxonomic hierarchy: domain, phylum, class, order, family, genus, species
-- `ASV_sequence`
+The canonical speedup values below are RF-relative prediction-pipeline results.
+Training is excluded. Each speedup is meaningful within its own task, but the
+absolute values must not be compared across datasets because input caches and
+execution backends differ.
 
-The default high-accuracy mode uses nonnegative feature hashing, TF-IDF
-weighting, and LinearSVC. The script also includes a separate prototype-based
-HDC readout.
+| Dataset/task | RF | Explicit-Vocab | HDC-Linear_opt | HDC execution |
+|---|---:|---:|---:|---|
+| Marine eDNA | 1.00x | 0.88x | 0.98x | CPU hashed pipeline |
+| EMP 16S EMPO1 | 1.00x | 1.26x | 19.76x | GPU cached-input pipeline |
+| EMP 16S EMPO2 | 1.00x | 1.25x | 19.93x | GPU cached-input pipeline |
+| EMP 16S EMPO3 | 1.00x | 1.23x | 35.97x | GPU cached-input pipeline |
+| HMTOL before QC | 1.00x | 5.33x | 15.96x | GPU cached-input pipeline |
+| HMTOL QC Continent | 1.00x | 4.04x | 7.45x | GPU optimized precache pipeline |
+| HMTOL QC Region | 1.00x | 4.08x | 7.78x | GPU optimized precache pipeline |
 
-### `predict_hdc_geo_name.py`
+The EMP/HMTOL HDC timing includes cache opening, host-to-device transfer, HDC
+accumulation, normalization, and linear readout. The RF and HDC caches are not
+stored in identical formats, so these values are deployment-oriented rather
+than a raw-BIOM end-to-end comparison.
 
-Loads a model produced by `train_hdc_geo_classifier.py`, constructs the same
-sample-level features, and writes predicted `geo_loc_name` labels.
+## Corrections to the draft table
 
-### `tune_emp_16s_hdc_encodings.py`
+- The Marine eDNA row had copied HMTOL values. Its verified accuracies are
+  `0.8869`, `0.9550`, and `0.9640` for RF, Explicit-Vocab, and HDC,
+  respectively.
+- EMP EMPO3 Explicit-Vocab accuracy is `0.9523`, not `0.9350`.
+- The EMP `16.7x-17.5x` values came from an asymmetric benchmark: HDC loaded a
+  memory-mapped CSR cache while the RF baseline included previously measured
+  raw BIOM parsing. They are retained in `legacy_speedup_audit.csv` but are not
+  used in the canonical table.
+- The Marine `4.44x` HDC speedup could not be tied to a matching prediction
+  benchmark. The verified CPU prediction result is `0.9781x`; a separate GPU
+  precache implementation reached `35.64x`, but that is an implementation
+  result rather than the CPU HDC model timing.
 
-Tunes HDC sequence encodings on the Earth Microbiome Project (EMP) 16S data for
-EMPO1, EMPO2, and EMPO3 classification. It compares raw, log-transformed, and
-sublinear TF-IDF abundance weighting; multiple HDC dimensions and densities;
-whole-ASV and k-mer representations; and LinearSVC regularization values. Model
-selection uses an inner validation split before one final untouched-test
-evaluation.
+## Files
 
-### `benchmark_emp_tuned_hdc_gpu.py`
+- `final_results.csv`: canonical long-form accuracy and speedup table.
+- `final_results_wide.csv`: compact table for slides or spreadsheets.
+- `legacy_speedup_audit.csv`: disposition of the speedups in the draft table.
+- `source_manifest.csv`: source artifact for every result family.
+- `validate_final_results.py`: checks method coverage, ranges, dimensions, and
+  RF reference values.
+- `scripts/`: four clean dataset entrypoints containing only Random Forest,
+  Explicit-Vocab (SVM), and HDC-Linear_opt, plus one shared utility module.
+  See `scripts/README.md` for commands.
+- `tests/`: release-safe end-to-end tests that generate fictional CSV, BIOM,
+  metadata, and QZA inputs at runtime.
+- `tests/`: release-safe end-to-end tests that generate fictional CSV, BIOM,
+  metadata, and QZA inputs at runtime.
 
-Benchmarks the currently selected whole-ASV, TF-IDF-weighted EMP HDC
-representations with a GPU-resident readout. It compares the tuned GPU HDC
-pipeline with Random Forest while recording accuracy, stage-level runtime, and
-prediction speedup. See the compatibility and timing limitations below.
-
-### `benchmark_emp_16s_optimized_precache.py`
-
-Benchmarks the optimized deployment-oriented EMP prediction path. It uses an
-uncompressed memory-mapped cache, compact array types, CSR-aware CUDA HDC
-accumulation, GPU normalization, and a pretrained cuML LinearSVC. Training is
-performed once and excluded from prediction timing.
-
-## Dependencies
-
-The CPU scripts use Python, NumPy, SciPy, pandas, joblib, matplotlib,
-biom-format, and scikit-learn. GPU scripts additionally require an NVIDIA GPU,
-a CUDA 12-compatible driver, CuPy, and RAPIDS cuML.
-
-The repository includes the local helper modules imported by the five main
-scripts. The default paths in the scripts refer to the original workstation,
-so the commands below explicitly pass portable dataset, cache, and output
-paths.
-
-## Installation
-
-Clone the repository and create the tested Conda environment:
+Run the validation with:
 
 ```bash
-git clone https://github.com/Peter90301/Multi-variant-classification.git
-cd Multi-variant-classification
-conda env create -f environment.yml
-conda activate multi-variant-hdc
+python3 validate_final_results.py
 ```
 
-Alternatively, install into an existing Python 3.10 CUDA 12 environment:
+Run the release-safe tests with:
 
 ```bash
-python -m pip install -r requirements.txt
+python3 -m unittest discover -s tests -v
 ```
 
-The pinned package versions reproduce the software environment used for the
-reported GPU experiments. The NVIDIA driver and CUDA-compatible hardware are
-not installed by these files.
-
-## EMP Raw Data
-
-Download the published EMP release 1 deblur 90 bp BIOM feature table and QIIME
-mapping metadata:
+Run the public synthetic-data tests with:
 
 ```bash
-mkdir -p data/emp cache results
-
-curl -L --fail --retry 3 \
-  -o data/emp/emp_deblur_90bp.release1.biom \
-  https://ftp.microbio.me/emp/release1/otu_tables/deblur/emp_deblur_90bp.release1.biom
-
-curl -L --fail --retry 3 \
-  -o data/emp/emp_qiime_mapping_release1.tsv \
-  https://ftp.microbio.me/emp/release1/mapping_files/emp_qiime_mapping_release1.tsv
+../.venv/bin/python -m unittest discover -s tests -v
 ```
 
-Samples with a total count below 1,000 are removed by the commands below.
+## Interpretation
 
-## Build EMP Precache From Raw Data
-
-Build the standard 4,096-dimensional HDC precache directly from the downloaded
-BIOM table and metadata. This performs BIOM/metadata parsing, sample filtering,
-ASV hypervector generation, label encoding, and train/test split once:
-
-```bash
-python benchmark_emp_16s_full_gpu_cuml.py \
-  --biom data/emp/emp_deblur_90bp.release1.biom \
-  --metadata data/emp/emp_qiime_mapping_release1.tsv \
-  --precache-dir cache/emp_16s_gpu_precache_4096 \
-  --build-precache-only \
-  --outdir results/emp_precache_build \
-  --min-sample-sum 1000 \
-  --test-size 0.2 \
-  --random-state 42 \
-  --hdc-dim 4096 \
-  --active-dims-per-sequence 4 \
-  --device 0
-```
-
-Convert that cache to the compact prediction-only memory-mapped layout and run
-one warm-up plus 20 timed cached-input prediction-pipeline repetitions:
-
-```bash
-python benchmark_emp_16s_optimized_precache.py \
-  --source-cache cache/emp_16s_gpu_precache_4096 \
-  --optimized-cache cache/emp_16s_gpu_precache_4096_optimized \
-  --outdir results/emp_optimized_precache \
-  --repeats 20 \
-  --hdc-dim 4096 \
-  --active-dims-per-sequence 4 \
-  --device 0
-```
-
-The second command trains deployment models once before timing. Its measured
-**cached-input prediction pipeline** includes memory-map opening,
-host-to-device transfer, HDC accumulation, L2 normalization, GPU prediction,
-and returning labels to CPU. Raw BIOM parsing, metadata alignment, filtering,
-splitting, and model training are excluded because they were completed in the
-one-time preparation stage. The standard 4,096-dimensional cache contains raw
-counts; the separate tuned GPU benchmark caches the already TF-IDF-weighted
-test input, so its TF-IDF transformation is also outside the timed region. This
-timing must not be reported as raw-BIOM end-to-end runtime.
-
-## Tune And Benchmark EMP HDC
-
-Tune TF-IDF weighting, HDC dimensions/density, sequence encoding, and LinearSVC
-regularization using an inner validation split:
-
-```bash
-python tune_emp_16s_hdc_encodings.py \
-  --biom data/emp/emp_deblur_90bp.release1.biom \
-  --metadata data/emp/emp_qiime_mapping_release1.tsv \
-  --outdir results/emp_hdc_tuning \
-  --min-sample-sum 1000 \
-  --test-size 0.2 \
-  --validation-size 0.2 \
-  --random-state 42 \
-  --repeats 20
-```
-
-Benchmark the validation-selected whole-ASV TF-IDF encodings with the
-GPU-resident linear readout:
-
-```bash
-python benchmark_emp_tuned_hdc_gpu.py \
-  --biom data/emp/emp_deblur_90bp.release1.biom \
-  --metadata data/emp/emp_qiime_mapping_release1.tsv \
-  --tuning-dir results/emp_hdc_tuning \
-  --outdir results/emp_tuned_gpu \
-  --min-sample-sum 1000 \
-  --test-size 0.2 \
-  --random-state 42 \
-  --repeats 20 \
-  --device 0
-```
-
-The current GPU benchmark reconstructs a `whole_sequence_...npz` projection and
-always applies sublinear TF-IDF. It therefore supports the configurations that
-won the reported EMP tuning runs:
-
-| Target | Encoding | Weighting |
-|---|---|---|
-| EMPO1 | whole ASV sequence | sublinear TF-IDF |
-| EMPO2 | whole ASV sequence | sublinear TF-IDF |
-| EMPO3 | whole ASV sequence | sublinear TF-IDF |
-
-It does not yet dispatch generically on every candidate emitted by the tuning
-script. If a future run selects raw counts, log1p weighting, or a k-mer
-projection, `benchmark_emp_tuned_hdc_gpu.py` must be extended before that
-selection can be benchmarked faithfully.
-
-## Geo-location Training And Prediction
-
-The input CSV must include a sample identifier, `geo_loc_name`, taxonomy
-columns, and `ASV_sequence`. Train the default nonnegative feature-hashing,
-TF-IDF, and LinearSVC model:
-
-```bash
-python train_hdc_geo_classifier.py \
-  --csv data/all_voyages_NEW.csv \
-  --outdir results/geo_hdc \
-  --classifier linear-svm \
-  --hash-features 32768 \
-  --svm-c 16 \
-  --test-size 0.2 \
-  --random-state 42
-```
-
-Predict labels for samples represented in another compatible CSV:
-
-```bash
-python predict_hdc_geo_name.py \
-  --model results/geo_hdc/hdc_geo_loc_name_model.joblib \
-  --csv data/new_samples.csv \
-  --output results/geo_hdc/new_sample_predictions.csv \
-  --top-k 3
-```
-
-## Evaluation Scope
-
-The Geo and EMP scripts in this repository use sample-level random or
-stratified random splits. Rows are aggregated by sample before Geo splitting,
-but samples are not grouped by Voyage. EMP samples are not grouped by Study.
-Consequently, their reported test accuracies estimate performance on held-out
-samples drawn from the same collection of voyages or studies; they do not
-establish generalization to unseen voyages or studies.
-
-Cross-voyage or cross-study claims require group-aware outer splits such as
-`GroupKFold` or `StratifiedGroupKFold`, with all preprocessing and
-hyperparameter selection repeated inside each outer training partition. The
-EMP tuning script does use an inner validation split and fits TF-IDF only on
-the applicable training subset, but its outer split is still sample-level.
-
-## Benchmark Scope And Known Limitations
-
-- The tuned GPU HDC timing begins from an already transformed cache. It covers
-  cache opening, transfer, HDC construction, normalization, and prediction,
-  not preprocessing from raw BIOM and metadata.
-- The Random Forest cached-input path reads a compressed SciPy `.npz`, whereas
-  the optimized GPU path reads uncompressed memory-mapped `.npy` arrays. The
-  reported total therefore includes both compute and different cache-format
-  I/O costs. Classification-only timing and per-stage timing should be reported
-  separately from this cached-input total.
-- `gpu_linear_predict()` currently assumes a multiclass LinearSVC readout and
-  applies `argmax` across class-score columns. A binary LinearSVC has only one
-  score column, so the current helper would always return class index 0 for a
-  binary task. Binary support must threshold the single score at zero before
-  this helper is used for two-class experiments. The reported EMP tasks have
-  3, 6, and 19 classes, so this limitation does not affect those results.
-
-## Supporting Modules
-
-- `train_geo_classifier.py`: CSV cleaning and sample-level feature aggregation.
-- `predict_geo_name.py`: prediction-time explicit feature loading utilities.
-- `benchmark_emp_16s_empo.py`: EMP BIOM/metadata loading, filtering, splitting,
-  and sequence projection.
-- `benchmark_emp_16s_full_gpu_cuml.py`: raw-data GPU pipeline and standard
-  precache creation/loading.
-- `benchmark_emp_16s_gpu_hdc.py`: shared CSR and CUDA HDC build utilities.
-- `benchmark_human_gut_168k_five_methods.py`: shared optimized GPU matrix and
-  linear-readout utilities.
-- `cuda_emp_hdc_build.cu`: native CUDA implementation used by the standalone
-  GPU HDC feature-build benchmark.
-
-## Data
-
-Large datasets, trained models, and generated benchmark caches are not included
-in this repository.
+HDC improves accuracy most clearly on Marine eDNA and HMTOL Country under a
+random split. On EMP, Explicit-Vocab is slightly more accurate than tuned
+linear HDC at all three EMPO levels. Under HMTOL study-held-out QC, HDC and
+Explicit-Vocab are close, indicating that cross-study domain shift, rather
+than classifier capacity alone, is the main limitation.

@@ -1,0 +1,22 @@
+dataset_task,method,draft_speedup,status,canonical_speedup,reason
+Marine eDNA,Random Forest,1.00x,retained,1.0000x,RF reference
+Marine eDNA,Explicit-Vocab (SVM),1.00x,replaced,0.8825x,verified prediction wall-time result is slower than RF
+Marine eDNA,HDC-Linear_opt,4.44x,not verified,0.9781x,no matching 4.44x prediction artifact; CPU HDC prediction result retained
+EMP EMPO1,Random Forest,1.00x,retained,1.0000x,RF reference
+EMP EMPO1,Explicit-Vocab (SVM),1.26x,retained,1.2631x,legacy pipeline benchmark
+EMP EMPO1,HDC-Linear_opt,16.7x,replaced,19.7574x,16.7x mixed memory-mapped HDC input with raw BIOM time added to RF
+EMP EMPO2,Random Forest,1.00x,retained,1.0000x,RF reference
+EMP EMPO2,Explicit-Vocab (SVM),1.25x,retained,1.2541x,legacy pipeline benchmark
+EMP EMPO2,HDC-Linear_opt,16.7x,replaced,19.9267x,16.7x mixed memory-mapped HDC input with raw BIOM time added to RF
+EMP EMPO3,Random Forest,1.00x,retained,1.0000x,RF reference
+EMP EMPO3,Explicit-Vocab (SVM),1.23x,retained,1.2337x,legacy pipeline benchmark
+EMP EMPO3,HDC-Linear_opt,17.5x,replaced,35.9722x,17.5x mixed memory-mapped HDC input with raw BIOM time added to RF
+HMTOL before QC,Random Forest,1.00x,retained,1.0000x,RF reference
+HMTOL before QC,Explicit-Vocab (SVM),5.33x,retained,5.3258x,cached-input prediction pipeline
+HMTOL before QC,HDC-Linear_opt,15.96x,retained with caveat,15.9610x,RF and HDC use different cache formats
+HMTOL QC Continent,Random Forest,1.00x,retained,1.0000x,RF reference
+HMTOL QC Continent,Explicit-Vocab (SVM),4.04x,retained,4.0372x,same study-held-out benchmark harness
+HMTOL QC Continent,HDC-Linear_opt,7.45x,retained,7.4512x,same study-held-out benchmark harness
+HMTOL QC Region,Random Forest,1.00x,retained,1.0000x,RF reference
+HMTOL QC Region,Explicit-Vocab (SVM),4.08x,retained,4.0812x,same study-held-out benchmark harness
+HMTOL QC Region,HDC-Linear_opt,7.78x,retained,7.7814x,same study-held-out benchmark harness
