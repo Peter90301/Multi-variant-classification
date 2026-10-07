@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent
-RESULTS = ROOT / "final_results.csv"
+RESULTS = ROOT / "results" / "final_results.csv"
 EXPECTED_METHODS = {
     "Random Forest",
     "Explicit-Vocab (SVM)",

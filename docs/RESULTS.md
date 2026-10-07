@@ -1,7 +1,8 @@
 # Canonical research results
 
 The tables in this document summarize the checked values in
-`final_results.csv`. They are kept separate from the fictional Quick Start.
+`results/final_results.csv`. They are kept separate from the fictional Quick
+Start.
 Run `python validate_final_results.py` from the repository root to check the
 table structure, method coverage, accuracy ranges, RF reference rows, and HDC
 dimensions.
@@ -42,12 +43,12 @@ These speedups are prediction-oriented and are not automatically raw-BIOM to
 prediction end-to-end measurements. Cache format, preprocessing scope, and
 backend differ between the recorded benchmark families. Do not compare the
 absolute speedup values across tasks without reading `timing_scope` and
-`speedup_comparability` in `final_results.csv`.
+`speedup_comparability` in `results/final_results.csv`.
 
 ## Reproduction status
 
 The raw Marine, EMP, and HMTOL research inputs are not distributed in this
-repository. `source_manifest.csv` records the source artifact family used for
+repository. `results/source_manifest.csv` records the source artifact family used for
 the canonical values. The four public scripts are suitable for rerunning the
 analysis when the corresponding input files are available, but their current
 EMP/HMTOL timing path is CPU in-memory and therefore does not recreate the
@@ -58,6 +59,7 @@ using private or restricted research inputs.
 
 The draft table previously mixed CPU and GPU paths, cache formats, and timing
 scopes. The canonical values above are preserved as data in
-`final_results.csv`; the old audit decisions remain in
-`legacy_speedup_audit.csv`. Neither the Quick Start nor the smoke tests modify
-these research result files.
+`results/final_results.csv`; the old audit decisions remain in
+`results/legacy_speedup_audit.csv`. The EMP dimension sweep data are in
+`results/emp_16s_dimension_sweep/`. Neither the Quick Start nor the smoke
+tests modify these research result files.

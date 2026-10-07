@@ -317,9 +317,9 @@ the synthetic Quick Start.
 This repository does not contain a confirmed project-paper citation or a
 complete data-publication citation record. Before publishing, cite the original
 data release for every dataset used and add the project citation once it has
-been confirmed by the authors. `source_manifest.csv` identifies the source
-artifact family for each canonical result without inventing bibliographic
-details.
+been confirmed by the authors. `results/source_manifest.csv` identifies the
+source artifact family for each canonical result without inventing
+bibliographic details.
 
 ## Common Issues
 

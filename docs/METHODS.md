@@ -51,9 +51,9 @@ transfer, GPU sparse linear readout, synchronization, and copying predictions
 back to the host.
 
 The EMP and HMTOL public scripts currently use the shared CPU in-memory
-prediction implementation. The GPU speedups in `final_results.csv` came from
-separate benchmark artifacts listed in `source_manifest.csv`; they should not
-be described as timings produced by those four scripts.
+prediction implementation. The GPU speedups in `results/final_results.csv`
+came from separate benchmark artifacts listed in `results/source_manifest.csv`;
+they should not be described as timings produced by those four scripts.
 
 ## What is not implemented
 
