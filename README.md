@@ -118,27 +118,11 @@ than a raw-BIOM end-to-end comparison.
 - `scripts/`: four clean dataset entrypoints containing only Random Forest,
   Explicit-Vocab (SVM), and HDC-Linear_opt, plus one shared utility module.
   See `scripts/README.md` for commands.
-- `tests/`: release-safe end-to-end tests that generate fictional CSV, BIOM,
-  metadata, and QZA inputs at runtime.
-- `tests/`: release-safe end-to-end tests that generate fictional CSV, BIOM,
-  metadata, and QZA inputs at runtime.
 
 Run the validation with:
 
 ```bash
 python3 validate_final_results.py
-```
-
-Run the release-safe tests with:
-
-```bash
-python3 -m unittest discover -s tests -v
-```
-
-Run the public synthetic-data tests with:
-
-```bash
-../.venv/bin/python -m unittest discover -s tests -v
 ```
 
 ## Interpretation
