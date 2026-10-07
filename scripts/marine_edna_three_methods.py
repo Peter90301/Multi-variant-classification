@@ -22,7 +22,14 @@ from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
 from scipy import sparse
 
-from three_method_common import gpu_cached_sparse_prediction, timed_runs, write_rows
+from three_method_common import (
+    gpu_cached_sparse_prediction,
+    require_file,
+    timed_runs,
+    validate_labels,
+    validate_positive_options,
+    write_rows,
+)
 
 
 TAXONOMY_FIELDS = [
@@ -60,6 +67,7 @@ def row_features(row: dict[str, str], kmer_size: int, max_weight: int):
 
 
 def load_samples(path: Path, kmer_size: int, max_weight: int):
+    require_file(path, "Marine CSV")
     features = defaultdict(Counter)
     labels = defaultdict(Counter)
     with path.open(newline="") as handle:
@@ -75,7 +83,21 @@ def load_samples(path: Path, kmer_size: int, max_weight: int):
                 continue
             features[sample].update(row_features(row, kmer_size, max_weight))
             labels[sample][label] += 1
+    if not features:
+        raise ValueError(
+            "Marine CSV contains no usable samples. Check sample and "
+            "geo_loc_name values."
+        )
     sample_ids = list(features)
+    conflicting = {
+        sample: sorted(values) for sample, values in labels.items() if len(values) > 1
+    }
+    if conflicting:
+        sample, values = next(iter(conflicting.items()))
+        raise ValueError(
+            f"Sample {sample!r} has multiple geo_loc_name labels: {values}. "
+            "Each sample must have one target label."
+        )
     x = [dict(features[sample]) for sample in sample_ids]
     y = np.asarray([labels[sample].most_common(1)[0][0] for sample in sample_ids])
     return np.asarray(sample_ids), x, y
@@ -93,13 +115,19 @@ def main() -> None:
     parser.add_argument("--hdc-c", type=float, default=16.0)
     parser.add_argument("--n-estimators", type=int, default=300)
     parser.add_argument("--repeats", type=int, default=20)
+    parser.add_argument(
+        "--backend", choices=("gpu", "cpu"), default="gpu",
+        help="Prediction backend for HDC-Linear_opt (default: gpu).",
+    )
     parser.add_argument("--device", type=int, default=0)
     args = parser.parse_args()
     args.outdir.mkdir(parents=True, exist_ok=True)
+    validate_positive_options(args.repeats, args.n_estimators)
 
     sample_ids, features, labels = load_samples(
         args.csv, args.kmer_size, args.max_count_weight
     )
+    validate_labels(labels, "Marine geo_loc_name")
     indices = np.arange(len(labels))
     train_idx, test_idx = train_test_split(
         indices, test_size=args.test_size, random_state=args.random_state,
@@ -148,23 +176,27 @@ def main() -> None:
         cache_bytes = 0
         cache_nnz = 0
         if method == "HDC-Linear_opt":
-            # Build the exact CPU-trained HDC representation once, then use it
-            # as the cached input for the GPU prediction benchmark.
-            hashed_test = model.named_steps["hasher"].transform(x_test)
-            hdc_test = model.named_steps["tfidf"].transform(hashed_test).tocsr()
-            cache_file = args.outdir / "hdc_gpu_cached_input.npz"
-            sparse.save_npz(cache_file, hdc_test, compressed=True)
-            prediction, times, gpu_metadata = gpu_cached_sparse_prediction(
-                cache_file,
-                model.named_steps["classifier"],
-                model.classes_,
-                args.repeats,
-                args.device,
-            )
-            cache_path = str(cache_file)
-            cache_bytes = gpu_metadata["cache_bytes"]
-            cache_nnz = gpu_metadata["nnz"]
-            execution = "GPU cached-input pipeline"
+            if args.backend == "gpu":
+                # Build the exact CPU-trained HDC representation once, then use it
+                # as the cached input for the GPU prediction benchmark.
+                hashed_test = model.named_steps["hasher"].transform(x_test)
+                hdc_test = model.named_steps["tfidf"].transform(hashed_test).tocsr()
+                cache_file = args.outdir / "hdc_gpu_cached_input.npz"
+                sparse.save_npz(cache_file, hdc_test, compressed=True)
+                prediction, times, gpu_metadata = gpu_cached_sparse_prediction(
+                    cache_file,
+                    model.named_steps["classifier"],
+                    model.classes_,
+                    args.repeats,
+                    args.device,
+                )
+                cache_path = str(cache_file)
+                cache_bytes = gpu_metadata["cache_bytes"]
+                cache_nnz = gpu_metadata["nnz"]
+                execution = "GPU cached-input pipeline"
+            else:
+                prediction, times = timed_runs(lambda: model.predict(x_test), args.repeats)
+                execution = "CPU in-memory prediction"
         else:
             prediction, times = timed_runs(lambda: model.predict(x_test), args.repeats)
         predictions[method] = prediction
@@ -182,7 +214,7 @@ def main() -> None:
             "execution": execution,
             "timing_scope": (
                 "cache load + H2D + GPU sparse LinearSVC readout"
-                if method == "HDC-Linear_opt"
+                if method == "HDC-Linear_opt" and args.backend == "gpu"
                 else "in-memory feature transform + CPU prediction"
             ),
             "cache_path": cache_path,
@@ -190,7 +222,11 @@ def main() -> None:
             "cache_nnz": cache_nnz,
             "warmup_runs": 1,
             "timed_runs": args.repeats,
-            "gpu_device": args.device if method == "HDC-Linear_opt" else "",
+            "gpu_device": (
+                args.device
+                if method == "HDC-Linear_opt" and args.backend == "gpu"
+                else ""
+            ),
         })
     rf_time = rows[0]["prediction_pipeline_mean_sec"]
     for row in rows:
@@ -205,9 +241,21 @@ def main() -> None:
                 sample_ids[index], y_test[offset],
                 *(predictions[method][offset] for method in predictions),
             ])
-    (args.outdir / "settings.json").write_text(json.dumps(vars(args), default=str, indent=2))
+    settings = {
+        **vars(args),
+        "samples": len(labels),
+        "classes": len(np.unique(labels)),
+        "evaluation": "stratified random 80/20 split",
+        "count_behavior": "optional; missing or invalid count defaults to weight 1",
+    }
+    (args.outdir / "settings.json").write_text(
+        json.dumps(settings, default=str, indent=2)
+    )
     print(json.dumps(rows, indent=2))
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (FileNotFoundError, ValueError, RuntimeError) as error:
+        raise SystemExit(f"Error: {error}") from error

@@ -18,20 +18,45 @@ from three_method_common import (
     METHODS,
     evaluate_three_methods,
     extract_reference_sequences,
+    require_columns,
+    require_file,
+    require_unique,
     sequence_projection,
+    validate_positive_options,
     write_rows,
 )
 
 
 def load_dataset(data_dir: Path):
-    table = load_table(str(data_dir / "feature-table.qc.min3.biom"))
+    if not data_dir.is_dir():
+        raise FileNotFoundError(
+            f"HMTOL QC data directory was not found: {data_dir}. "
+            "Provide feature-table.qc.min3.biom and metadata.qc.min3.tsv."
+        )
+    biom_path = data_dir / "feature-table.qc.min3.biom"
+    metadata_path = data_dir / "metadata.qc.min3.tsv"
+    require_file(biom_path, "HMTOL QC feature table")
+    require_file(metadata_path, "HMTOL QC metadata")
+    table = load_table(str(biom_path))
     sample_ids = np.asarray(list(map(str, table.ids(axis="sample"))))
     observation_ids = list(map(str, table.ids(axis="observation")))
-    metadata = pd.read_csv(
-        data_dir / "metadata.qc.min3.tsv", sep="\t", dtype=str, low_memory=False
+    metadata = pd.read_csv(metadata_path, sep="\t", dtype=str, low_memory=False)
+    require_columns(
+        metadata.columns,
+        {"SampleID", "study", "Continent", "region"},
+        "HMTOL QC metadata",
     )
+    require_unique(metadata["SampleID"].tolist(), "HMTOL QC metadata SampleID")
+    if len(sample_ids) != len(metadata):
+        raise ValueError(
+            "QC BIOM and metadata have different numbers of samples. "
+            "They must contain the same samples in the same order."
+        )
     if sample_ids.tolist() != metadata["SampleID"].tolist():
-        raise ValueError("QC BIOM sample order does not match metadata")
+        raise ValueError(
+            "QC BIOM sample order does not match metadata SampleID order. "
+            "Reorder the metadata rows to exactly match the BIOM table."
+        )
     counts = table.matrix_data.T.tocsr().astype(np.float32)
     counts.sort_indices()
     return sample_ids, observation_ids, counts, metadata
@@ -44,8 +69,29 @@ def balanced_study_folds(
     n_splits: int,
 ):
     """Balance target counts across folds while keeping studies intact."""
+    if study_column not in metadata.columns:
+        raise ValueError(
+            f"HMTOL QC metadata is missing study column {study_column!r}."
+        )
+    if target not in metadata.columns:
+        raise ValueError(
+            f"HMTOL QC metadata is missing target column {target!r}. "
+            "Use exact case-sensitive names such as Continent or region."
+        )
+    for column in (study_column, target):
+        values = metadata[column].astype(str).str.strip()
+        if values.isin({"", "nan", "NA", "N/A", "None", "null"}).any():
+            raise ValueError(
+                f"HMTOL QC column {column!r} contains missing values. "
+                "Fill them before running study-held-out evaluation."
+            )
     studies = np.asarray(sorted(metadata[study_column].unique()))
     classes = np.asarray(sorted(metadata[target].unique()))
+    if len(studies) < n_splits:
+        raise ValueError(
+            f"Study-held-out evaluation with {n_splits} folds needs at least "
+            f"{n_splits} studies; found {len(studies)}."
+        )
     study_pos = {value: index for index, value in enumerate(studies)}
     class_pos = {value: index for index, value in enumerate(classes)}
     weights = np.zeros((len(studies), len(classes)), dtype=np.float64)
@@ -54,7 +100,14 @@ def balanced_study_folds(
 
     support = (weights > 0).sum(axis=0)
     if np.any(support < n_splits):
-        raise ValueError("At least one class occurs in fewer studies than folds")
+        too_few = [
+            f"{classes[index]!r} ({count} studies)"
+            for index, count in enumerate(support) if count < n_splits
+        ]
+        raise ValueError(
+            f"Each target class must occur in at least {n_splits} different "
+            f"studies; insufficient class support: {', '.join(too_few)}."
+        )
 
     groups = len(studies)
     class_count = len(classes)
@@ -199,6 +252,9 @@ def main() -> None:
     parser.add_argument("--repeats", type=int, default=20)
     args = parser.parse_args()
     args.outdir.mkdir(parents=True, exist_ok=True)
+    if args.folds < 2:
+        raise ValueError("--folds must be at least 2 for study-held-out evaluation.")
+    validate_positive_options(args.repeats, args.n_estimators)
 
     sample_ids, observation_ids, counts, metadata = load_dataset(args.data_dir)
     sequences = extract_reference_sequences(
@@ -221,6 +277,8 @@ def main() -> None:
         "evaluation": "balanced study-held-out cross-validation",
         "study_id_used_as_feature": False,
         "timing_scope": "in-memory test counts through prediction; training excluded",
+        "sample_order_requirement": "BIOM sample IDs must exactly match metadata SampleID order",
+        "study_requirement": "each target class must occur in at least --folds studies",
     }
     (args.outdir / "settings.json").write_text(
         json.dumps(settings, default=str, indent=2)
@@ -229,4 +287,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (FileNotFoundError, ValueError, RuntimeError) as error:
+        raise SystemExit(f"Error: {error}") from error

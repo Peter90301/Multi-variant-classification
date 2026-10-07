@@ -14,8 +14,13 @@ from biom import load_table
 from sklearn.model_selection import train_test_split
 
 from three_method_common import (
+    require_columns,
+    require_file,
+    require_unique,
     evaluate_three_methods,
     sequence_projection,
+    validate_labels,
+    validate_positive_options,
     write_rows,
 )
 
@@ -34,16 +39,27 @@ def clean_label(value) -> str:
 
 
 def load_emp(biom_path: Path, metadata_path: Path, min_sample_sum: float):
+    require_file(biom_path, "EMP BIOM table")
+    require_file(metadata_path, "EMP metadata file")
     table = load_table(str(biom_path))
     all_samples = np.asarray(list(map(str, table.ids(axis="sample"))))
     observation_ids = list(map(str, table.ids(axis="observation")))
     sample_sums = np.asarray(table.sum(axis="sample"), dtype=np.float64)
     kept = all_samples[sample_sums >= min_sample_sum]
     metadata = pd.read_csv(metadata_path, sep="\t", dtype=str, low_memory=False)
-    if "#SampleID" not in metadata.columns:
-        raise ValueError("Metadata is missing #SampleID")
+    require_columns(
+        metadata.columns,
+        {"#SampleID", *CONFIGS},
+        "EMP metadata",
+    )
+    require_unique(metadata["#SampleID"].tolist(), "EMP metadata #SampleID")
     metadata = metadata.set_index("#SampleID", drop=False)
     sample_ids = [sample for sample in kept if sample in metadata.index]
+    if not sample_ids:
+        raise ValueError(
+            "No BIOM sample IDs match metadata #SampleID after the abundance "
+            "filter. Check IDs and --min-sample-sum."
+        )
     positions = {sample: index for index, sample in enumerate(all_samples)}
     selected = np.asarray([positions[sample] for sample in sample_ids], dtype=np.int32)
     counts = table.matrix_data.tocsc()[:, selected].T.tocsr().astype(np.float32)
@@ -63,6 +79,7 @@ def main() -> None:
     parser.add_argument("--repeats", type=int, default=20)
     args = parser.parse_args()
     args.outdir.mkdir(parents=True, exist_ok=True)
+    validate_positive_options(args.repeats, args.n_estimators)
 
     sample_ids, observation_ids, counts, metadata = load_emp(
         args.biom, args.metadata, args.min_sample_sum
@@ -76,6 +93,7 @@ def main() -> None:
         labels = np.asarray([
             clean_label(metadata[level].iloc[index]) for index in valid
         ])
+        validate_labels(labels, f"EMP {level}")
         relative = np.arange(len(valid), dtype=np.int32)
         stratify = labels if min(Counter(labels).values()) >= 2 else None
         train_idx, test_idx = train_test_split(
@@ -112,6 +130,8 @@ def main() -> None:
         "features": len(observation_ids),
         "configs": CONFIGS,
         "timing_scope": "in-memory test counts through prediction; training excluded",
+        "sample_id_matching": "BIOM sample IDs are matched exactly to #SampleID",
+        "low_abundance_behavior": f"samples with total count < {args.min_sample_sum} are removed",
     }
     (args.outdir / "settings.json").write_text(
         json.dumps(settings, default=str, indent=2)
@@ -120,4 +140,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (FileNotFoundError, ValueError, RuntimeError) as error:
+        raise SystemExit(f"Error: {error}") from error

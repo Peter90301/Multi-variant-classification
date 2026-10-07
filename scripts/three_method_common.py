@@ -10,6 +10,7 @@ import re
 import sys
 import time
 import zipfile
+from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +23,60 @@ from sklearn.svm import LinearSVC
 
 
 METHODS = ("Random Forest", "Explicit-Vocab (SVM)", "HDC-Linear_opt")
+
+
+def require_file(path: Path, description: str) -> None:
+    """Raise a short, actionable error when an input file is missing."""
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"{description} was not found: {path}. Check the path and try again."
+        )
+
+
+def require_columns(columns, required: set[str], description: str) -> None:
+    """Validate exact, case-sensitive column names before model work starts."""
+    available = set(columns)
+    missing = sorted(required - available)
+    if missing:
+        raise ValueError(
+            f"{description} is missing required column(s): {', '.join(missing)}. "
+            f"Column names are case-sensitive."
+        )
+
+
+def require_unique(values, description: str) -> None:
+    """Reject duplicate IDs where one row must represent one entity."""
+    series = np.asarray(values, dtype=object)
+    duplicates = [value for value, count in Counter(series.tolist()).items() if count > 1]
+    if duplicates:
+        preview = ", ".join(map(str, duplicates[:5]))
+        suffix = " ..." if len(duplicates) > 5 else ""
+        raise ValueError(
+            f"{description} contains duplicate ID(s): {preview}{suffix}. "
+            "Remove duplicates or aggregate them before running."
+        )
+
+
+def validate_labels(labels: np.ndarray, description: str) -> None:
+    """Check that a stratified train/test split is possible."""
+    counts = Counter(np.asarray(labels, dtype=str).tolist())
+    if len(counts) < 2:
+        raise ValueError(
+            f"{description} needs at least 2 non-empty classes; found {len(counts)}."
+        )
+    small = [f"{label!r} ({count})" for label, count in counts.items() if count < 2]
+    if small:
+        raise ValueError(
+            f"{description} needs at least 2 samples per class for the default "
+            f"stratified split; too-small class(es): {', '.join(small[:5])}."
+        )
+
+
+def validate_positive_options(repeats: int, n_estimators: int) -> None:
+    if repeats < 1:
+        raise ValueError("--repeats must be at least 1.")
+    if n_estimators < 1:
+        raise ValueError("--n-estimators must be at least 1.")
 
 
 def write_rows(path: Path, rows: list[dict]) -> None:
@@ -44,9 +99,17 @@ def _import_cupy():
     try:
         import cupy as cp
         from cupyx.scipy.sparse import csr_matrix as gpu_csr_matrix
+        if cp.cuda.runtime.getDeviceCount() < 1:
+            raise RuntimeError("CuPy is installed, but no CUDA device is available.")
     except ImportError as error:
         raise RuntimeError(
             "The GPU cached-input path requires CuPy. Install the optional "
+            "GPU dependencies from scripts/requirements-gpu.txt."
+        ) from error
+    except RuntimeError as error:
+        raise RuntimeError(
+            "The GPU backend needs CuPy and an available CUDA device. "
+            "Use --backend cpu on a CPU-only computer or install the optional "
             "GPU dependencies from scripts/requirements-gpu.txt."
         ) from error
     return cp, gpu_csr_matrix
@@ -157,6 +220,7 @@ def extract_reference_sequences(
     cache_path: Path | None = None,
 ) -> np.ndarray:
     """Extract Greengenes2 sequences corresponding to BIOM feature IDs."""
+    require_file(qza_path, "Reference sequence archive")
     if cache_path is not None and cache_path.exists():
         cached = np.load(cache_path, allow_pickle=False)
         if len(cached) == len(observation_ids):
