@@ -148,6 +148,15 @@ The GPU image installs CuPy for CUDA 12. It does not make the EMP or HMTOL
 public entrypoints GPU implementations; those entrypoints currently use the
 shared CPU in-memory path described in [docs/RESULTS.md](docs/RESULTS.md).
 
+### VS Code Dev Container
+
+The repository includes `.devcontainer/devcontainer.json`, which points to
+the CPU `Dockerfile`. Install the **Dev Containers** extension in VS Code,
+open the repository folder, and select **Reopen in Container** when prompted.
+VS Code will build the environment from the repository Dockerfile. This uses
+the CPU image; GPU access still requires the separate `Dockerfile.gpu` and a
+host configured with NVIDIA Container Toolkit.
+
 ## Quick Start
 
 The following creates a small, fictional, release-safe dataset. It does not
