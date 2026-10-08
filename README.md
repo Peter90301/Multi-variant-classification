@@ -120,6 +120,34 @@ The Dockerfile does not install CuPy or provide GPU access. GPU execution
 requires a compatible NVIDIA host, NVIDIA Container Toolkit, and a separate
 CUDA-compatible image/dependency setup.
 
+### Docker (GPU)
+
+`Dockerfile.gpu` is a separate NVIDIA CUDA 12 image for the Marine GPU
+backend. The host must have a compatible NVIDIA driver and NVIDIA Container
+Toolkit. Build and check GPU visibility from the repository root:
+
+```bash
+docker build -f Dockerfile.gpu -t multi-variant-classification:gpu .
+docker run --rm --gpus all multi-variant-classification:gpu
+```
+
+Run Marine with a host data directory mounted into the container:
+
+```bash
+docker run --rm --gpus all \
+  -v "$PWD:/app" \
+  -v /path/to/data:/data:ro \
+  multi-variant-classification:gpu \
+  python scripts/marine_edna_three_methods.py \
+  --csv /data/marine_table.csv \
+  --outdir output/marine_gpu \
+  --backend gpu
+```
+
+The GPU image installs CuPy for CUDA 12. It does not make the EMP or HMTOL
+public entrypoints GPU implementations; those entrypoints currently use the
+shared CPU in-memory path described in [docs/RESULTS.md](docs/RESULTS.md).
+
 ## Quick Start
 
 The following creates a small, fictional, release-safe dataset. It does not
