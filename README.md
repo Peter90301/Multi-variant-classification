@@ -409,3 +409,13 @@ bibliographic details.
 - **GPU unavailable:** install `scripts/requirements-gpu.txt` and verify an
   NVIDIA/CUDA device, or rerun Marine with `--backend cpu`. The program reports
   the backend instead of silently relabelling CPU timing as GPU timing.
+
+## Acknowledgement
+
+This work was supported in part by the Minderoo Foundation (eDNAID:
+Environmental DNA and AI as Tools for Ocean Aid) under award number CLB-3502.
+
+## License
+
+This project is released under the BSD 3-Clause License. See
+[LICENSE](LICENSE) for the full license text.
